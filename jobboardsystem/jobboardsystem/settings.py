@@ -30,9 +30,9 @@ MEDIA_ROOT = '%s/jobboard/static/' % BASE_DIR
 SECRET_KEY = 'django-insecure-7_fz@i3-jnafmqwbo!hn!ojn2k(6b#4n^xtfqqmzkkl@tvvj&#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', False) == 'True'
+DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -44,13 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'jobboard',
     'rest_framework',
     'ckeditor',
     'ckeditor_uploader',
-    'cloudinary_storage',
     'cloudinary',
-
+    'cloudinary_storage',
+    'jobboard',
+    'django_filters',
 ]
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
@@ -87,14 +87,25 @@ AUTH_USER_MODEL ="jobboard.User"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'jobboarddb',
+#         'USER': 'root',
+#         'PASSWORD': 'Tuanduy1805@',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'jobboarddb',
         'USER': 'root',
-        'PASSWORD': 'Tuanduy1805@',
+        'PASSWORD': 'root',
         'HOST': 'localhost',
-        'PORT': '3306',
+        'PORT': '3305',
     }
 }
 
@@ -122,6 +133,18 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+}
 
 
 # Internationalization

@@ -1,3 +1,157 @@
-from django.shortcuts import render
+from rest_framework import generics, viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django.contrib.auth import get_user_model
 
-# Create your views here.
+from .models import (
+    Company, JobCategory, Skill, Job,
+    Application, CandidateProfile, EmployerProfile
+)
+from .serializers import (
+    RegisterSerializer, UserSerializer,
+    CompanySerializer, JobCategorySerializer, SkillSerializer,
+    JobListSerializer, JobDetailSerializer,
+    ApplicationSerializer,
+    CandidateProfileSerializer, EmployerProfileSerializer,
+)
+from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly
+
+User = get_user_model()
+
+
+# AUTH
+class RegisterView(generics.CreateAPIView):
+    #POST /api/auth/register/
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    #GET, PUT, PATCH /api/auth/profile
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+# COMPANY
+class CompanyViewSet(viewsets.ModelViewSet):
+    queryset = Company.objects.filter(is_active=True)
+    serializer_class = CompanySerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsEmployer()]
+        return [permissions.AllowAny()]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+# JOB
+class JobViewSet(viewsets.ModelViewSet):
+    queryset = Job.objects.filter(is_active=True).select_related('company', 'category').prefetch_related('skills')
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['job_type', 'category', 'company']
+    search_fields = ['title', 'description', 'location']
+    ordering_fields = ['created_at', 'salary_min', 'deadline']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return JobListSerializer
+        return JobDetailSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsEmployer()]
+        return [permissions.AllowAny()]
+
+    @action(detail=True, methods=['get'], permission_classes=[IsEmployer],
+            url_path='applications')
+    def applications(self, request, pk=None):
+        """GET /api/jobs/{id}/applications/ - Employer xem danh sách ứng viên"""
+        job = self.get_object()
+        # Kiểm tra job thuộc về employer này
+        if job.company.owner != request.user:
+            return Response({'error': 'Bạn không có quyền xem.'}, status=403)
+        apps = job.applications.select_related('candidate')
+        return Response(ApplicationSerializer(apps, many=True).data)
+
+
+# APPLICATION
+class ApplicationViewSet(viewsets.ModelViewSet):
+    serializer_class = ApplicationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'candidate':
+            return Application.objects.filter(candidate=user).select_related('job')
+        if user.role == 'employer':
+            return Application.objects.filter(
+                job__company__owner=user
+            ).select_related('candidate', 'job')
+        return Application.objects.all()  # admin xem tất cả
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsCandidate()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(candidate=self.request.user)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsEmployer],
+            url_path='update-status')
+    def update_status(self, request, pk=None):
+        """PATCH /api/applications/{id}/update-status/"""
+        app = self.get_object()
+        new_status = request.data.get('status')
+        valid_statuses = ['PENDING', 'REVIEWING', 'ACCEPTED', 'REJECTED']
+        if new_status not in valid_statuses:
+            return Response(
+                {'error': f'Trạng thái không hợp lệ. Chọn: {valid_statuses}'},
+                status=400
+            )
+        app.status = new_status
+        app.save()
+        return Response({'id': app.id, 'status': app.status})
+
+
+# CATEGORY & SKILL
+class JobCategoryListView(generics.ListAPIView):
+    queryset = JobCategory.objects.filter(is_active=True)
+    serializer_class = JobCategorySerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class SkillListView(generics.ListAPIView):
+    queryset = Skill.objects.filter(is_active=True)
+    serializer_class = SkillSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+# PROFILES
+class CandidateProfileView(generics.RetrieveUpdateAPIView):
+    # GET, PUT, PATCH /api/candidate/profile/
+    serializer_class = CandidateProfileSerializer
+    permission_classes = [IsCandidate]
+
+    def get_object(self):
+        profile, _ = CandidateProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+
+class EmployerProfileView(generics.RetrieveUpdateAPIView):
+    # GET, PUT, PATCH /api/employer/profile/
+    serializer_class = EmployerProfileSerializer
+    permission_classes = [IsEmployer]
+
+    def get_object(self):
+        profile, _ = EmployerProfile.objects.get_or_create(user=self.request.user)
+        return profile

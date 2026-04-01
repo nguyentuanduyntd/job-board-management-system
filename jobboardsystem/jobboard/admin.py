@@ -2,7 +2,6 @@ from django.contrib import admin
 from django.template.response import TemplateResponse
 from django.utils.html import mark_safe
 from django.urls import path
-from jobboard.models import JobCategory
 from django import forms
 from ckeditor.fields import CKEditorWidget
 from django.db.models import Count
