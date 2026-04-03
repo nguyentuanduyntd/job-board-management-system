@@ -1,4 +1,6 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from jobboard.models import EmployerProfile
+
 
 class IsEmployer(BasePermission):
     def has_permission(self, request, view):
@@ -19,3 +21,14 @@ class IsOwnerOrReadOnly(BasePermission):
             return True
         owner = getattr(obj, 'owner', None) or getattr(obj, 'candidate', None)
         return owner == request.user
+
+class IsVerifiedEmployer(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.role != 'employer':
+            return False
+        try:
+            return request.user.employer_profile.is_verified
+        except EmployerProfile.DoesNotExist:
+            return False

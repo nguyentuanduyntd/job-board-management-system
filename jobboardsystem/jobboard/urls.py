@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register('jobs', views.JobViewSet, basename='job')
 router.register('applications', views.ApplicationViewSet, basename='application')
 router.register('companies', views.CompanyViewSet, basename='company')
+router.register('admin/employers', views.AdminEmployerViewSet, basename='admin-employer')
 
 urlpatterns = [
     # Auth
@@ -26,6 +27,7 @@ urlpatterns = [
     # Lookup
     path('categories/', views.JobCategoryListView.as_view()),
     path('skills/', views.SkillListView.as_view()),
+
 
     path('', include(router.urls)),
 ]

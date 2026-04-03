@@ -10,14 +10,15 @@ from .models import (
     Company, JobCategory, Skill, Job,
     Application, CandidateProfile, EmployerProfile
 )
+from .paginators import MyPaginator
 from .serializers import (
     RegisterSerializer, UserSerializer,
     CompanySerializer, JobCategorySerializer, SkillSerializer,
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer,
-    CandidateProfileSerializer, EmployerProfileSerializer,
+    CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
 )
-from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly
+from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly, IsVerifiedEmployer
 
 User = get_user_model()
 
@@ -30,9 +31,10 @@ class RegisterView(generics.CreateAPIView):
 
 
 class ProfileView(generics.RetrieveUpdateAPIView):
-    #GET, PUT, PATCH /api/auth/profile
+    #GET, PATCH /api/auth/profile
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'patch']
 
     def get_object(self):
         return self.request.user
@@ -63,6 +65,7 @@ class JobViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'description', 'location']
     ordering_fields = ['created_at', 'salary_min', 'deadline']
     ordering = ['-created_at']
+    pagination_class = MyPaginator
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -71,7 +74,7 @@ class JobViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsEmployer()]
+            return [IsVerifiedEmployer()]
         return [permissions.AllowAny()]
 
     def perform_update(self, serializer):
@@ -175,9 +178,10 @@ class SkillListView(generics.ListAPIView):
 
 # PROFILES
 class CandidateProfileView(generics.RetrieveUpdateAPIView):
-    # GET, PUT, PATCH /api/candidate/profile/
+    # GET, PATCH /api/candidate/profile/
     serializer_class = CandidateProfileSerializer
     permission_classes = [IsCandidate]
+    http_method_names = ['get', 'patch']
 
     def get_object(self):
         profile, _ = CandidateProfile.objects.get_or_create(user=self.request.user)
@@ -185,10 +189,61 @@ class CandidateProfileView(generics.RetrieveUpdateAPIView):
 
 
 class EmployerProfileView(generics.RetrieveUpdateAPIView):
-    # GET, PUT, PATCH /api/employer/profile/
+    # GET, PATCH /api/employer/profile/
     serializer_class = EmployerProfileSerializer
     permission_classes = [IsEmployer]
-
+    http_method_names = ['get', 'patch']
     def get_object(self):
         profile, _ = EmployerProfile.objects.get_or_create(user=self.request.user)
         return profile
+
+#Admin quản lý duyệt account employer
+class AdminEmployerViewSet(viewsets.GenericViewSet):
+    def get_serializer_class(self):
+        if self.action in ['approve','reject']:
+            return  EmployerVerifySerializer
+        return EmployerProfileAdminSerializer
+    #GET /admin/employers/
+    #Admin xem toàn bộ list employer
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = EmployerProfileAdminSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    #GET /admin/employers/pending/
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        queryset = self.get_queryset().filter(is_active=False)
+        serializer = EmployerProfileAdminSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    #PATCH /admin/employers/{id}/approve/
+    @action(detail=True, methods=['patch'], url_path='approve')
+    def approve(self, request, pk=None):
+        profile = self.get_object()
+        if profile.is_verified:
+            return Response(
+                {'error': 'Tài khoản này đã được duyệt rồi'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        profile.is_verified = True
+        profile.save()
+        return Response(
+            {'message':f'Đã duyệt tài khoản {profile.user.username}.'},
+            status=status.HTTP_200_OK
+        )
+    #PATCH /admin/employer/{id}/reject/
+    @action(detail=True, methods=['patch'], url_path='reject')
+    def reject(self, request, pk=None):
+        profile = self.get_object()
+        if not profile.is_verified:
+            return Response(
+                {'error':'Tài khoản này chưa được duyệt.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        profile.is_verified = False
+        profile.save()
+        return Response(
+            {'message':f'Đã thu hồi xác minh tài khoản {profile.user.username}.'},
+            status=status.HTTP_200_OK
+        )

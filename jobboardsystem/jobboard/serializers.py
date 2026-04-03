@@ -212,3 +212,18 @@ class EmployerProfileSerializer(serializers.ModelSerializer):
         if request and value.owner != request.user:
             raise serializers.ValidationError('Bạn không phải chủ sở hữu công ty này.')
         return value
+
+#Admin duyệt/ từ chối employer
+class EmployerVerifySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmployerProfile
+        fields = ['id','is_verified']
+
+#Admin xem danh sách employer chờ duyệt
+class EmployerProfileAdminSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    company = CompanySerializer(read_only=True)
+
+    class Meta:
+        model = EmployerProfile
+        fields = ['id', 'user', 'company', 'position', 'bio','is_verified','created_at']

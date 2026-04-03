@@ -68,9 +68,19 @@ class Job(BaseModel):
     skills = models.ManyToManyField(Skill)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='jobs')
     category = models.ForeignKey(JobCategory, on_delete=models.CASCADE, related_name='jobs')
-
+    is_featured = models.BooleanField(default=False) # đánh dấu tin nổi bật sau khi được employer thanh toán
     def __str__(self):
         return self.title
+
+class JobComparison(BaseModel):
+    candidate =models.ForeignKey(User, on_delete=models.CASCADE, related_name='comparisons')
+    jobs = models.ManyToManyField(Job, related_name='comparisons')
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.candidate.username}'s comparison"
 
 class Application(BaseModel):
     STATUS_CHOICES = [
@@ -111,6 +121,30 @@ class EmployerProfile(BaseModel):
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='employers')
     position = models.CharField(max_length=100, null=True, blank=True) 
     bio = models.TextField(null=True, blank=True)
-
+    is_verified = models.BooleanField(default=False)
     def __str__(self):
         return f"{self.user.username}'s employer profile"
+
+class Payment(BaseModel):
+    PAYMENT_METHOD_CHOICES = [
+        ('cash','Tiền mặt'),
+        ('paypal','PayPal'),
+        ('stripe','Stripe'),
+        ('momo','MoMo'),
+        ('zalopay','ZaloPay'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    transaction_id = models.CharField(max_length=255, null=True, blank=True) # mã giao dịch từ các bên thứ 3
+    description = models.TextField(null=True, blank=True)
+    job = models.ForeignKey(Job, on_delete=models.SET_NULL,null=True,blank=True, related_name='payments')
+    def __str__(self):
+        return f"{self.user.username} - {self.amount} - {self.method}"
