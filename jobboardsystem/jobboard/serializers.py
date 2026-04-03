@@ -7,6 +7,7 @@ from .models import (
 
 User = get_user_model()
 
+#Success
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True)
@@ -26,13 +27,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('confirm_password')
         return User.objects.create_user(**validated_data)
 
-
+#Update again
+#Success
 class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
+    #Thêm write_only để upload avatar từ CloudinaryField
+    avatar = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'phone', 'avatar_url']
+        fields = ['id', 'username', 'email', 'role', 'phone', 'avatar_url','avatar']
         read_only_fields = ['role']
 
     def get_avatar_url(self, obj):
@@ -40,14 +44,25 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.avatar.url
         return None
 
+    #Thêm cái update để xử lý việc lưu avatar khi update lại user
+    def update(self, instance, validated_data):
+        avatar = validated_data.pop('avatar',None)
+        instance = super().update(instance, validated_data)
+        if avatar is not None:
+            instance.avatar = avatar
+            instance.save()
+        return instance
 
-# SKILL & CATEGORY
+
+# SKILL
+#Success
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = ['id', 'name']
 
-
+#Category
+#Success
 class JobCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = JobCategory
@@ -55,14 +70,25 @@ class JobCategorySerializer(serializers.ModelSerializer):
 
 
 # COMPANY
+#Success
 class CompanySerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
 
+    #Thêm MethodField để trả URL tuyệt dối
+    logo_url = serializers.SerializerMethodField()
+    #Giữ logo là write_only để upload
+    logo = serializers.ImageField(write_only=True, required=False)
+
     class Meta:
         model = Company
-        fields = ['id', 'name', 'logo', 'description', 'website', 'address', 'owner', 'created_at']
+        fields = ['id', 'name', 'logo','logo_url', 'description', 'website', 'address', 'owner', 'created_at']
         read_only_fields = ['owner', 'created_at']
 
+    def get_logo_url(self, obj):
+        request = self.context.get('request')
+        if obj.logo and request:
+            return request.build_absolute_uri(obj.logo.url)
+        return None
 
 # JOB
 class JobListSerializer(serializers.ModelSerializer):
@@ -110,6 +136,17 @@ class JobDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at']
 
+    #Override update để xử lý ManytoMany cho skills, dùng set
+    def update(self, instance, validated_data):
+        skills = validated_data.pop('skills', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if skills is not None:
+            instance.skills.set(skills)
+        return instance
+
+
 
 # APPLICATION
 class ApplicationSerializer(serializers.ModelSerializer):
@@ -130,8 +167,10 @@ class ApplicationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context['request']
         job = data.get('job')
-        if Application.objects.filter(candidate=request.user, job=job).exists():
-            raise serializers.ValidationError('Bạn đã ứng tuyển vị trí này rồi.')
+
+        if self.instance is None:
+            if Application.objects.filter(candidate=request.user,job=job).exists():
+                raise serializers.ValidationError('Bạn đã ứng tuyển vị trí này rồi!')
         return data
 
 
@@ -148,6 +187,14 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
             'id', 'date_of_birth', 'gender', 'address',
             'bio', 'cv_file', 'skills', 'skill_ids'
         ]
+    def update(self, instance, validated_data):
+        skills = validated_data.pop('skills', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if skills is not None:
+            instance.skills.set(skills)
+        return instance
 
 
 class EmployerProfileSerializer(serializers.ModelSerializer):
@@ -159,3 +206,9 @@ class EmployerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id', 'company', 'company_id', 'position', 'bio']
+
+    def validate_company_id(self, value):
+        request = self.context.get('request')
+        if request and value.owner != request.user:
+            raise serializers.ValidationError('Bạn không phải chủ sở hữu công ty này.')
+        return value

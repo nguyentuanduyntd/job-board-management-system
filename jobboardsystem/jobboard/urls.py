@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+import oauth2_provider.views as oauth2_views
 from . import views
 
 router = DefaultRouter()
@@ -11,8 +11,12 @@ router.register('companies', views.CompanyViewSet, basename='company')
 urlpatterns = [
     # Auth
     path('auth/register/', views.RegisterView.as_view()),
-    path('auth/login/', TokenObtainPairView.as_view()),
-    path('auth/token/refresh/', TokenRefreshView.as_view()),
+    #Lấy token
+    path('auth/login/', oauth2_views.TokenView.as_view()),
+    #Refresh token
+    path('auth/token/refresh/', oauth2_views.TokenView.as_view()),
+    #thu hồi token
+    path('auth/revoke/', oauth2_views.RevokeTokenView.as_view()),
     path('auth/profile/', views.ProfileView.as_view()),
 
     # Profiles theo role

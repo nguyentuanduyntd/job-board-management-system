@@ -1,5 +1,6 @@
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -43,8 +44,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
     serializer_class = CompanySerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        #tách create và update/destroy để tránh trường hợp employer sửa/xóa company của người khác
+        if self.action == 'create':
             return [IsEmployer()]
+        if self.action in ['update','partial_update','destroy']:
+            return [IsEmployer(), IsOwnerOrReadOnly()]
         return [permissions.AllowAny()]
 
     def perform_create(self, serializer):
@@ -69,6 +73,17 @@ class JobViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsEmployer()]
         return [permissions.AllowAny()]
+
+    def perform_update(self, serializer):
+        job = self.get_object()
+        if job.company.owner != self.request.user:
+            raise PermissionDenied('Bạn không có quyền sửa job này.')
+        serializer.save()
+
+    def perform_destroy(self,instance):
+        if instance.company.owner != self.request.user:
+            raise PermissionDenied('Bạn không có quyền xóa job này!')
+        instance.delete()
 
     @action(detail=True, methods=['get'], permission_classes=[IsEmployer],
             url_path='applications')
@@ -106,23 +121,45 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
 
+    def destroy(self, request, *args, **kwargs):
+        app = self.get_object()
+
+        #Chỉ candidate sở hữu application mới được xóa
+        if app.candidate != request.user:
+            return Response(
+                {'error': 'Bạn không có quyền rút đơn này.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if app.status in ['ACCEPTED','REVIEWING']:
+            return Response(
+                {'error':'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=['patch'], permission_classes=[IsEmployer],
             url_path='update-status')
     def update_status(self, request, pk=None):
         """PATCH /api/applications/{id}/update-status/"""
         app = self.get_object()
+        if app.job.company.owner != request.user:
+            return Response(
+                {'error':'Bạn không có quyền cập nhật đơn này!'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         new_status = request.data.get('status')
         valid_statuses = ['PENDING', 'REVIEWING', 'ACCEPTED', 'REJECTED']
         if new_status not in valid_statuses:
             return Response(
                 {'error': f'Trạng thái không hợp lệ. Chọn: {valid_statuses}'},
-                status=400
+                status=status.HTTP_400_BAD_REQUEST
             )
-        app.status = new_status
-        app.save()
-        return Response({'id': app.id, 'status': app.status})
+        serializer = self.get_serializer(app, data={'status': new_status}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-
+#Chưa sửa
 # CATEGORY & SKILL
 class JobCategoryListView(generics.ListAPIView):
     queryset = JobCategory.objects.filter(is_active=True)

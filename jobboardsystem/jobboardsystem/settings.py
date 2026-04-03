@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'jobboard',
     'django_filters',
+    'oauth2_provider',
+    'drf_yasg',
 ]
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
@@ -87,27 +89,27 @@ AUTH_USER_MODEL ="jobboard.User"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'jobboarddb',
-#         'USER': 'root',
-#         'PASSWORD': 'Tuanduy1805@',
-#         'HOST': 'localhost',
-#         'PORT': '3306',
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'jobboarddb',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': 'Tuanduy1805@',
         'HOST': 'localhost',
-        'PORT': '3305',
+        'PORT': '3306',
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'jobboarddb',
+#         'USER': 'root',
+#         'PASSWORD': 'root',
+#         'HOST': 'localhost',
+#         'PORT': '3305',
+#     }
+# }
 
 CKEDITOR_UPLOAD_PATH = 'content/ckeditor/'
 CKEDITOR_CONFIGS = {
@@ -136,16 +138,20 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_FILTER_BACKENDS': [
-        'django_filters.rest_framework.DjangoFilterBackend',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-}
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 
+}
+# Cấu hình OAuth2
+OAUTH2_PROVIDER = {
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,       # token hết hạn sau 1 giờ
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400,     # refresh token hết hạn sau 1 ngày
+    'ROTATE_REFRESH_TOKEN': True,              # tạo refresh token mới mỗi lần refresh
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
