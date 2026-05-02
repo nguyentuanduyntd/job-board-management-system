@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from .models import (
     Company, JobCategory, Skill, Job,
-    Application, CandidateProfile, EmployerProfile
+    Application, CandidateProfile, EmployerProfile, JobComparison, Payment
 )
 
 User = get_user_model()
@@ -146,11 +147,57 @@ class JobDetailSerializer(serializers.ModelSerializer):
             instance.skills.set(skills)
         return instance
 
+    def validate(self, data):
+        salary_min = data.get('salary_min')
+        salary_max = data.get('salary_max')
+        if salary_min and salary_max and salary_min > salary_max:
+            raise serializers.ValidationError({
+                'salary_min': 'Lương tối thiểu không được lớn hơn lương tối đa.'
+            })
+        return data
 
+class JobComparisonSerializer(serializers.ModelSerializer):
+    jobs = JobListSerializer(many=True, read_only=True)
+    job_ids = serializers.PrimaryKeyRelatedField(
+        queryset = Job.objects.filter(is_active=True),
+        many = True,
+        write_only = True,
+        source = 'jobs'
+    )
+    class Meta:
+        model = JobComparison
+        fields = ['id', 'jobs', 'job_ids', 'created_at']
+        read_only_fields = ['created_at']
+
+    def validate_job_ids(self, jobs):
+        if len(jobs) < 2:
+            raise serializers.ValidationError('Cần ít nhất 2 công việc để so sánh.')
+        if len(jobs) > 5:
+            raise serializers.ValidationError('Chỉ được so sánh tối đa 5 công việc.')
+        return jobs
+
+    def create(self, validate_data):
+        jobs = validate_data.pop('jobs')
+        comparison = JobComparison.objects.create(**validate_data)
+        comparison.jobs.set(jobs)
+        return comparison
+
+
+class CandidatePublicSerializer(serializers.ModelSerializer):
+    #dùng khi employer xem thông tin ứng viên
+    avatar_url = serializers.SerializerMethodField()
+    class Meta:
+        model = User
+        fields = ['id', 'username','phone', 'avatar_url']
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            return obj.avatar.url
+        return None
 
 # APPLICATION
 class ApplicationSerializer(serializers.ModelSerializer):
-    candidate = UserSerializer(read_only=True)
+    candidate = CandidatePublicSerializer(read_only=True)
     job = JobListSerializer(read_only=True)
     job_id = serializers.PrimaryKeyRelatedField(
         queryset=Job.objects.all(), write_only=True, source='job'
@@ -167,6 +214,12 @@ class ApplicationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         request = self.context['request']
         job = data.get('job')
+
+        if not job.is_active:
+            raise serializers.ValidationError('Tin tuyển dụng này đã đóng.')
+
+        if job.deadline and job.deadline < timezone.now().date():
+            raise serializers.ValidationError('Tin tuyển dụng này đã hết hạn.')
 
         if self.instance is None:
             if Application.objects.filter(candidate=request.user,job=job).exists():
@@ -227,3 +280,46 @@ class EmployerProfileAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id', 'user', 'company', 'position', 'bio','is_verified','created_at']
+
+#Payment
+class PaymentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    class Meta:
+        model = Payment
+        fields = ['id', 'user', 'amount', 'method', 'status',
+            'payment_type', 'transaction_id', 'description',
+            'job', 'application', 'created_at']
+        read_only_fields = ['user', 'status', 'transaction_id', 'created_at']
+
+    def validate(self, data):
+        request = self.context['request']
+        user = request.user
+        payment_type = data.get('payment_type')
+        job = data.get('job')
+        application = data.get('application')
+
+        if payment_type == 'featured_job':
+            if user.role != 'employer':
+                raise serializers.ValidationError(
+                    {'payment_type': 'Chỉ Employer mới có thể mua gói tin nổi bật.'}
+                )
+            if not job:
+                raise serializers.ValidationError({'job': 'Cần chọn job để featured.'})
+            if job.company.owner != user:
+                raise serializers.ValidationError({'job': 'Job này không thuộc về bạn.'})
+            if job.is_featured:
+                raise serializers.ValidationError({'job': 'Job này đã được featured rồi.'})
+
+        elif payment_type == 'priority_application':
+            if user.role != 'candidate':
+                raise serializers.ValidationError(
+                    {'payment_type': 'Chỉ Candidate mới có thể mua gói ưu tiên hồ sơ.'}
+                )
+            if not application:
+                raise serializers.ValidationError({'application': 'Cần chọn application để ưu tiên.'})
+            if application.candidate != user:
+                raise serializers.ValidationError({'application': 'Application này không phải của bạn.'})
+            if application.is_priority:
+                raise serializers.ValidationError({'application': 'Hồ sơ này đã được ưu tiên rồi.'})
+
+        return data

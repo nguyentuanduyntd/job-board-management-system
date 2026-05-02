@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 from .models import (
     Company, JobCategory, Skill, Job,
-    Application, CandidateProfile, EmployerProfile
+    Application, CandidateProfile, EmployerProfile, JobComparison, Payment
 )
 from .paginators import MyPaginator
 from .serializers import (
@@ -17,10 +18,18 @@ from .serializers import (
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer,
     CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
+    JobComparisonSerializer, PaymentSerializer
 )
 from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly, IsVerifiedEmployer
 
 User = get_user_model()
+
+# custom throttle class cho login và register
+class LoginRateThrottle(AnonRateThrottle):
+    scope = 'login'
+
+class RegisterRateThrottle(AnonRateThrottle):
+    scope = 'register'
 
 
 # AUTH
@@ -28,7 +37,7 @@ class RegisterView(generics.CreateAPIView):
     #POST /api/auth/register/
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
-
+    throttle_classes = [RegisterRateThrottle]
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     #GET, PATCH /api/auth/profile
@@ -99,6 +108,76 @@ class JobViewSet(viewsets.ModelViewSet):
         apps = job.applications.select_related('candidate')
         return Response(ApplicationSerializer(apps, many=True).data)
 
+class JobComparisonViewSet(viewsets.ModelViewSet):
+    serializer_class = JobComparisonSerializer
+    permission_classes = [IsCandidate]
+    http_method_names = ['get', 'post', 'delete','patch']
+
+    def get_queryset(self):
+        return JobComparison.objects.filter(
+            candidate=self.request.user
+        ).prefetch_related('jobs__skills','jobs__company','jobs_category')
+
+    def perform_create(self, serializer):
+        serializer.save(candidate=self.request.user)
+
+    @action(detail=True, methods=['patch'], url_path='add-job')
+    def add_job(self, request, pk=None):
+        comparison = self.get_object()
+        job_id = request.data.get('job_id')
+        if not job_id:
+            return Response(
+                {'error': 'Thiếu job_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            job = Job.objects.get(pk=job_id, is_active=True)
+        except Job.DoesNotExist:
+            return Response(
+                {'error':'Job không tồn tại hoặc đã đóng'}
+                , status=status.HTTP_404_NOT_FOUND
+            )
+        if comparison.job.count() >=5:
+            return Response(
+                {'error':'Chỉ được so sánh tối đa 5 công việc'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if comparison.job.filter(pk=job_id).exists():
+            return Response(
+                {'error': 'Job này đã có trong danh sách so sánh'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        comparison.jobs.add(job)
+        return Response(
+            JobComparisonSerializer(comparison, context={'request': request}).data
+        )
+    @action(detail=True, methods=['patch'], url_path='remove-job')
+    def remove_job(self, request, pk=None):
+        comparison = self.get_object()
+        job_id = request.data.get('job_id')
+        if not job_id:
+            return Response(
+                {'error':'Thiếu job_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            job = comparison.jobs.get(pk=job_id)
+        except Job.DoesNotExist:
+            return Response(
+                {'error':'Job này không có trong danh sách so sánh'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        comparison.jobs.remove(job)
+
+        if comparison.jobs.count() < 2:
+            comparison.delete()
+            return Response(
+                {'message':'Comparison đã bị xóa vì còn ít hơn 2 công việc!'},
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            JobComparisonSerializer(comparison, context={'request': request}).data
+        )
 
 # APPLICATION
 class ApplicationViewSet(viewsets.ModelViewSet):
@@ -119,7 +198,9 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'create':
             return [IsCandidate()]
-        return [permissions.IsAuthenticated()]
+        if self.action == 'update_status':
+            return [IsEmployer()]
+        return [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
@@ -145,6 +226,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def update_status(self, request, pk=None):
         """PATCH /api/applications/{id}/update-status/"""
         app = self.get_object()
+
         if app.job.company.owner != request.user:
             return Response(
                 {'error':'Bạn không có quyền cập nhật đơn này!'},
@@ -247,3 +329,31 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
             {'message':f'Đã thu hồi xác minh tài khoản {profile.user.username}.'},
             status=status.HTTP_200_OK
         )
+
+#Payment
+class PaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = PaymentSerializer
+    http_method_names = ['get', 'post']
+
+    def get_permissions(self):
+        if self.action == 'stripe_webhook':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'admin':
+            return Payment.objects.all().select_related('user', 'job', 'application')
+        # Employer chỉ thấy featured_job payments
+        if user.role == 'employer':
+            return Payment.objects.filter(
+                user=user,
+                payment_type='featured_job'
+            ).select_related('job')
+        # Candidate chỉ thấy priority_application payments
+        if user.role == 'candidate':
+            return Payment.objects.filter(
+                user=user,
+                payment_type='priority_application'
+            ).select_related('application')
+        return Payment.objects.none()

@@ -27,7 +27,7 @@ class BaseModel(models.Model):
 class Company(BaseModel):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='companies')
     name = models.CharField(max_length=100)
-    logo = models.ImageField(upload_to='jobboard/', null=True, blank=True)
+    logo = CloudinaryField('logo', blank=True, null=True)
     description = models.TextField(null=True, blank=True)
     website = models.URLField(null=True, blank=True)
     address = models.TextField(null=True, blank=True)
@@ -94,7 +94,7 @@ class Application(BaseModel):
     cover_letter = models.TextField(null=True, blank=True)
     cv_file = models.FileField(upload_to='jobboard/cv/', null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-
+    is_priority = models.BooleanField(default=False)
     class Meta:
         unique_together = ('candidate', 'job')
 
@@ -139,10 +139,21 @@ class Payment(BaseModel):
         ('failed', 'Failed'),
         ('refunded', 'Refunded'),
     ]
+    PAYMENT_TYPE_CHOICES = [
+        ('featured_job', 'Tin tuyển dụng nổi bật'),
+        ('priority_application', 'Hồ sơ ứng viên ưu tiên'),
+    ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    payment_type = models.CharField(
+        max_length=30,
+        choices=PAYMENT_TYPE_CHOICES,
+        default='featured_job'
+    )
+    application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='payments')
     transaction_id = models.CharField(max_length=255, null=True, blank=True) # mã giao dịch từ các bên thứ 3
     description = models.TextField(null=True, blank=True)
     job = models.ForeignKey(Job, on_delete=models.SET_NULL,null=True,blank=True, related_name='payments')

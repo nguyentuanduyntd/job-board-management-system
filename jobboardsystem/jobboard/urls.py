@@ -8,7 +8,8 @@ router.register('jobs', views.JobViewSet, basename='job')
 router.register('applications', views.ApplicationViewSet, basename='application')
 router.register('companies', views.CompanyViewSet, basename='company')
 router.register('admin/employers', views.AdminEmployerViewSet, basename='admin-employer')
-
+router.register('comparison', views.JobComparisonViewSet, basename='comparison')
+router.register('payments', views.PaymentViewSet, basename='payment')
 urlpatterns = [
     # Auth
     path('auth/register/', views.RegisterView.as_view()),
