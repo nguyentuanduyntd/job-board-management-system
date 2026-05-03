@@ -91,6 +91,8 @@ class Job(BaseModel):
     description = models.TextField()
     location =models.CharField(max_length=255, null=True, blank=True)
     job_type = models.CharField(max_length=2, choices=JOB_TYPE_CHOICES, default='FT')
+    experience_required = models.CharField(max_length=100, null=True, blank=True)
+    benefits = models.TextField(null=True, blank=True)
     deadline = models.DateField(null=True, blank=True)
     salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

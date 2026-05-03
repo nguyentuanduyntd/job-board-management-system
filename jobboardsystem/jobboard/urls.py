@@ -29,6 +29,9 @@ urlpatterns = [
     path('categories/', views.JobCategoryListView.as_view()),
     path('skills/', views.SkillListView.as_view()),
 
+    # Thống kê
+    path('admin/statistics/', views.AdminStatisticsViewSet.as_view()),
+    path('employer/statistics/', views.EmployerStatisticsViewSet.as_view()),
 
     path('', include(router.urls)),
 ]

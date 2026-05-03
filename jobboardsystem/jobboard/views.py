@@ -7,6 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
+
 
 from .models import (
     Company, JobCategory, Skill, Job,
@@ -439,3 +442,115 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 payment_type='priority_application'
             ).select_related('application')
         return Payment.objects.none()
+
+
+# Thống Kê cho Admin
+class AdminStatisticsViewSet(generics.GenericAPIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        total_jobs = Job.objects.filter(is_active=True).count()
+        total_users = User.objects.count()
+        total_revenue = Payment.objects.filter(
+            status='completed'
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # Thống kê user theo role
+        users_by_role = User.objects.values('role').annotate(count=Count('id'))
+
+        # Thống kê job theo category
+        jobs_by_category = Job.objects.filter(is_active=True)\
+            .values('category__name')\
+            .annotate(count=Count('id'))\
+            .order_by('-count')[:10]
+
+        # Doanh thu theo tháng (12 tháng gần nhất)
+        revenue_by_month = Payment.objects.filter(status='completed')\
+            .annotate(month=TruncMonth('created_at'))\
+            .values('month')\
+            .annotate(total=Sum('amount'))\
+            .order_by('-month')[:12]
+
+        return Response({
+            'overview': {
+                'total_jobs': total_jobs,
+                'total_users': total_users,
+                'total_revenue': total_revenue,
+            },
+            'users_by_role': list(users_by_role),
+            'jobs_by_category': list(jobs_by_category),
+            'revenue_by_month': list(revenue_by_month),
+        })
+
+# Thống kê cho nhà tuyển dụng
+class EmployerStatisticsViewSet(generics.GenericAPIView):
+    permission_classes = [IsVerifiedEmployer]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'month')
+
+        # Tất cả job của employer này
+        employer_jobs = Job.objects.filter(company__owner=request.user)
+
+        # Tất cả application của employer
+        employer_apps = Application.objects.filter(
+            job__company__owner=request.user
+        )
+
+        # Tổng quan
+        total_jobs = employer_jobs.filter(is_active=True).count()
+        total_applications = employer_apps.count()
+
+        # Chất lượng ứng viên
+        quality_breakdown = employer_apps.values('status').annotate(
+            count=Count('id')
+        )
+        quality_map = {item['status']: item['count'] for item in quality_breakdown}
+        accepted = quality_map.get('ACCEPTED', 0)
+        rejected = quality_map.get('REJECTED', 0)
+        acceptance_rate = round(
+            accepted / (accepted + rejected) * 100, 1
+        ) if (accepted + rejected) > 0 else 0
+
+        # Chọn hàm truncate theo period
+        trunc_fn_map = {
+            'month': TruncMonth,
+            'quarter': TruncQuarter,
+            'year': TruncYear,
+        }
+        trunc_fn = trunc_fn_map.get(period, TruncMonth)
+
+        # Hiệu quả đăng tin: số job tạo theo period
+        jobs_over_time = employer_jobs\
+            .annotate(period=trunc_fn('created_at'))\
+            .values('period')\
+            .annotate(jobs_posted=Count('id'))\
+            .order_by('period')
+
+        # Số đơn ứng tuyển nhận được theo period
+        apps_over_time = employer_apps\
+            .annotate(period=trunc_fn('created_at'))\
+            .values('period')\
+            .annotate(applications_received=Count('id'))\
+            .order_by('period')
+
+        # Top jobs nhận nhiều đơn nhất
+        top_jobs = employer_jobs.annotate(
+            app_count=Count('applications')
+        ).order_by('-app_count')[:5].values(
+            'id', 'title', 'app_count', 'created_at'
+        )
+
+        return Response({
+            'overview': {
+                'total_active_jobs': total_jobs,
+                'total_applications': total_applications,
+                'accepted': accepted,
+                'rejected': rejected,
+                'acceptance_rate_percent': acceptance_rate,
+            },
+            'applications_by_status': quality_map,
+            'jobs_over_time': list(jobs_over_time),
+            'applications_over_time': list(apps_over_time),
+            'top_jobs_by_applications': list(top_jobs),
+        })
