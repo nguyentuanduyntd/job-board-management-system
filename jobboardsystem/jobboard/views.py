@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -18,7 +19,7 @@ from .serializers import (
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer,
     CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
-    JobComparisonSerializer, PaymentSerializer
+    JobComparisonSerializer, PaymentSerializer, JobCompareItemSerializer
 )
 from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly, IsVerifiedEmployer
 
@@ -68,7 +69,10 @@ class CompanyViewSet(viewsets.ModelViewSet):
 
 # JOB
 class JobViewSet(viewsets.ModelViewSet):
-    queryset = Job.objects.filter(is_active=True).select_related('company', 'category').prefetch_related('skills')
+    queryset = Job.objects.filter(is_active=True)\
+        .select_related('company','category')\
+        .prefetch_related('skills')\
+        .order_by('-featured_score','-created_at')
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['job_type', 'category', 'company']
     search_fields = ['title', 'description', 'location']
@@ -95,7 +99,8 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_destroy(self,instance):
         if instance.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền xóa job này!')
-        instance.delete()
+        instance.is_active = False
+        instance.save()
 
     @action(detail=True, methods=['get'], permission_classes=[IsEmployer],
             url_path='applications')
@@ -105,21 +110,64 @@ class JobViewSet(viewsets.ModelViewSet):
         # Kiểm tra job thuộc về employer này
         if job.company.owner != request.user:
             return Response({'error': 'Bạn không có quyền xem.'}, status=403)
-        apps = job.applications.select_related('candidate')
-        return Response(ApplicationSerializer(apps, many=True).data)
+        apps = job.applications.select_related('candidate__profile')\
+                                .prefetch_related('candidate__profile__skills')
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            apps = apps.filter(status=status_filter)
+        apps = apps.order_by('-priority_level','-created_at')
+
+        return Response(
+            ApplicationSerializer(
+                apps,many=True, context={'request': request}
+        ).data)
+
+    @action(detail=False , methods=['get'],url_path='my-jobs',permission_classes=[IsVerifiedEmployer])
+    def my_jobs(self, request):
+        #GET /jobs/my-jobs/ employer xem danh sách job của mình
+        jobs = Job.objects.filter(
+            company__owner=request.user
+        ).select_related('company','category')\
+        .prefetch_related('skills')\
+        .order_by('-created_at')
+
+        return Response(JobDetailSerializer(
+            jobs, many=True, context={'request': request}
+        ).data)
 
 class JobComparisonViewSet(viewsets.ModelViewSet):
     serializer_class = JobComparisonSerializer
     permission_classes = [IsCandidate]
-    http_method_names = ['get', 'post', 'delete','patch']
+    http_method_names = ['get', 'post', 'delete']
 
     def get_queryset(self):
         return JobComparison.objects.filter(
             candidate=self.request.user
-        ).prefetch_related('jobs__skills','jobs__company','jobs_category')
+        ).prefetch_related('jobs__skills','jobs__company','jobs__category')
 
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='suggest')
+    def suggest(self, request):
+        category_id = request.query_params.get('category_id')
+        exclude_job_id = request.query_params.get('exclude_job_id')
+
+        if not category_id:
+            return Response(
+                {'error': 'Cần truyền category_id.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        jobs = Job.objects.filter(
+            category__id=category_id,
+            is_active=True
+        ).select_related('company','category')\
+        .prefetch_related('skills') .order_by('-featured_score','-created_at')
+
+        if exclude_job_id:
+            jobs = jobs.exclude(id=exclude_job_id)
+        jobs = jobs[:10]
+        return Response(JobCompareItemSerializer(jobs, many=True).data)
 
     @action(detail=True, methods=['patch'], url_path='add-job')
     def add_job(self, request, pk=None):
@@ -137,20 +185,30 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
                 {'error':'Job không tồn tại hoặc đã đóng'}
                 , status=status.HTTP_404_NOT_FOUND
             )
-        if comparison.job.count() >=5:
+        if comparison.jobs.count() >=5:
             return Response(
                 {'error':'Chỉ được so sánh tối đa 5 công việc'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if comparison.job.filter(pk=job_id).exists():
+        if comparison.jobs.filter(pk=job_id).exists():
             return Response(
                 {'error': 'Job này đã có trong danh sách so sánh'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        existing_categoires = set(
+            comparison.jobs.values_list('category_id',flat=True)
+        )
+        warning = None
+        if existing_categoires and job.category_id not in existing_categoires:
+            warning = 'Job này thuộc lĩnh vực khác với các job đang so sánh.'
         comparison.jobs.add(job)
         return Response(
             JobComparisonSerializer(comparison, context={'request': request}).data
-        )
+        ).data
+        if warning:
+            respone_data['warning'] = warning
+        return Response(respone_data)
     @action(detail=True, methods=['patch'], url_path='remove-job')
     def remove_job(self, request, pk=None):
         comparison = self.get_object()
@@ -187,6 +245,12 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+
+        Application.objects.filter(
+            is_priority=True,
+            priority_expired_at__lte=timezone.now()
+        ).update(is_priority=False, priority_level=0)
+
         if user.role == 'candidate':
             return Application.objects.filter(candidate=user).select_related('job')
         if user.role == 'employer':
@@ -200,7 +264,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             return [IsCandidate()]
         if self.action == 'update_status':
             return [IsEmployer()]
-        return [permissions.IsAuthenticated]
+        return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
@@ -243,6 +307,24 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsEmployer],url_path='add-note')
+    def add_note(self, request, pk=None):
+        #PATCH /application/{id}/add-note
+        app = self.get_object()
+        if app.job.company.owner != request.user:
+            return Response({'error': 'Bạn không có quyền!'}, status=403)
+
+        note = request.data.get('employer_note','').strip()
+        if not note:
+            return Response({'error': 'Ghi chú không được để trống.'}, status=400)
+
+        app.employer_note = note
+        app.save()
+        return Response({
+            'message': 'Đã lưu ghi chú.',
+            'employer_note': app.employer_note
+        })
 
 #Chưa sửa
 # CATEGORY & SKILL

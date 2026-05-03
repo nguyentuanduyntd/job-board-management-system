@@ -103,7 +103,8 @@ class JobListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'company_name', 'category_name',
             'location', 'job_type', 'salary_min', 'salary_max',
-            'deadline', 'quantity', 'skills', 'created_at'
+            'deadline', 'quantity', 'skills', 'created_at',
+            'is_featured','featured_priority',
         ]
 
 
@@ -156,24 +157,59 @@ class JobDetailSerializer(serializers.ModelSerializer):
             })
         return data
 
+class JobCompareItemSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    skills = SkillSerializer(many=True, read_only=True)
+    company_address = serializers.CharField(source='company.address', read_only=True)
+    category_id = serializers.IntegerField(source='category.id', read_only=True)
+
+    class Meta:
+        model = Job
+        fields = ['id','title','salary_min','salary_max'
+                  ,'requirements','description','location','job_type',
+                  'company_name','company_address','category_name','category_id',
+                  'skills', 'deadline','quantity','is_featured','created_at']
+
 class JobComparisonSerializer(serializers.ModelSerializer):
-    jobs = JobListSerializer(many=True, read_only=True)
+    jobs = JobCompareItemSerializer(many=True, read_only=True)
     job_ids = serializers.PrimaryKeyRelatedField(
         queryset = Job.objects.filter(is_active=True),
         many = True,
         write_only = True,
         source = 'jobs'
     )
+    comparison_summary = serializers.SerializerMethodField()
     class Meta:
         model = JobComparison
-        fields = ['id', 'jobs', 'job_ids', 'created_at']
+        fields = ['id', 'jobs', 'job_ids','comparison_summary', 'created_at']
         read_only_fields = ['created_at']
+
+    def get_comparison_summary(self, obj):
+        jobs = obj.jobs.all()
+        if not jobs:
+            return None
+        return {
+            'total_jobs': jobs.count(),
+            'salary_range': {
+                'highest_max': max((j.salary_max for j in jobs if j.salary_max), default=None),
+                'lowest_min': min((j.salary_min for j in jobs if j.salary_min), default=None),
+            },
+            'locations': list(set(j.location for j in jobs if j.location)),
+            'job_types': list(set(j.job_type for j in jobs if j.job_type)),
+            'categories': list(set(j.category.name for j in jobs if j.category)),
+            'same_category': len(set(j.category_id for j in jobs)) == 1,
+        }
 
     def validate_job_ids(self, jobs):
         if len(jobs) < 2:
             raise serializers.ValidationError('Cần ít nhất 2 công việc để so sánh.')
         if len(jobs) > 5:
             raise serializers.ValidationError('Chỉ được so sánh tối đa 5 công việc.')
+
+        categories = set(j.category_id for j in jobs)
+        if len(categories) > 1:
+            pass
         return jobs
 
     def create(self, validate_data):
@@ -182,13 +218,21 @@ class JobComparisonSerializer(serializers.ModelSerializer):
         comparison.jobs.set(jobs)
         return comparison
 
+class CandidateProfilePublicSerializer(serializers.ModelSerializer):
+
+    skills = SkillSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CandidateProfile
+        fields = ['bio','gender','address','cv_file','skills']
 
 class CandidatePublicSerializer(serializers.ModelSerializer):
     #dùng khi employer xem thông tin ứng viên
     avatar_url = serializers.SerializerMethodField()
+    profile = CandidateProfilePublicSerializer(read_only=True)
     class Meta:
         model = User
-        fields = ['id', 'username','phone', 'avatar_url']
+        fields = ['id', 'username','phone', 'avatar_url','profile']
 
     def get_avatar_url(self, obj):
         if obj.avatar:
@@ -202,14 +246,20 @@ class ApplicationSerializer(serializers.ModelSerializer):
     job_id = serializers.PrimaryKeyRelatedField(
         queryset=Job.objects.all(), write_only=True, source='job'
     )
+    is_priority_active = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
             'id', 'candidate', 'job', 'job_id',
-            'cover_letter', 'cv_file', 'status', 'created_at'
+            'cover_letter', 'cv_file', 'status', 'created_at',
+            'is_priority', 'priority_level',
+            'is_priority_active', 'employer_note'
         ]
-        read_only_fields = ['candidate', 'status', 'created_at']
+        read_only_fields = ['candidate', 'status', 'created_at','is_priority', 'priority_level']
+
+    def get_is_priority_active(self, obj):
+        return obj.is_priority_active()
 
     def validate(self, data):
         request = self.context['request']
@@ -226,7 +276,10 @@ class ApplicationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Bạn đã ứng tuyển vị trí này rồi!')
         return data
 
-
+class ApplicationEmployerNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Application
+        fields = ['id','employer_note']
 # PROFILES
 class CandidateProfileSerializer(serializers.ModelSerializer):
     skills = SkillSerializer(many=True, read_only=True)
@@ -284,19 +337,42 @@ class EmployerProfileAdminSerializer(serializers.ModelSerializer):
 #Payment
 class PaymentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    package_detail = serializers.SerializerMethodField()
+
     class Meta:
         model = Payment
         fields = ['id', 'user', 'amount', 'method', 'status',
-            'payment_type', 'transaction_id', 'description',
+            'payment_type','package','package_detail', 'transaction_id', 'description',
             'job', 'application', 'created_at']
-        read_only_fields = ['user', 'status', 'transaction_id', 'created_at']
+        read_only_fields = ['user', 'status', 'transaction_id','amount', 'created_at']
+
+    def get_package_detail(self, obj):
+        if obj.package:
+            return {
+                'name': obj.package.name,
+                'level': obj.package.level,
+                'duration_days': obj.package.duration_days,
+                'price': str(obj.package.price),
+            }
+        return None
 
     def validate(self, data):
         request = self.context['request']
         user = request.user
         payment_type = data.get('payment_type')
+        package = data.get('package')
         job = data.get('job')
         application = data.get('application')
+
+        if not package:
+            raise serializers.ValidationError({'package':'Cần chọn package'})
+
+        if package.package_type != payment_type:
+            raise serializers.ValidationError({
+                'package': f'Package "{package.name}" không đúng loại. Cần loại "{payment_type}"'
+            })
+
+        data['amount'] = package.price
 
         if payment_type == 'featured_job':
             if user.role != 'employer':
@@ -319,7 +395,7 @@ class PaymentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'application': 'Cần chọn application để ưu tiên.'})
             if application.candidate != user:
                 raise serializers.ValidationError({'application': 'Application này không phải của bạn.'})
-            if application.is_priority:
+            if application.is_priority_active():
                 raise serializers.ValidationError({'application': 'Hồ sơ này đã được ưu tiên rồi.'})
 
         return data
