@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Avg
 from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 
 
@@ -445,112 +445,104 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
 
 # Thống Kê cho Admin
-class AdminStatisticsViewSet(generics.GenericAPIView):
+class AdminStatisticsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
 
-    def get(self, request):
-        total_jobs = Job.objects.filter(is_active=True).count()
-        total_users = User.objects.count()
-        total_revenue = Payment.objects.filter(
-            status='completed'
-        ).aggregate(total=Sum('amount'))['total'] or 0
+    @action(detail=False, methods=['get'], url_path='admin-dashboard')
+    def admin_dashboard(self, request):
+        total_jobs       = Job.objects.count()
+        total_candidates = User.objects.filter(role='candidate').count()
+        total_employers  = User.objects.filter(role='employer').count()
+        total_revenue    = Payment.objects.filter(status='completed').aggregate(Sum('amount'))['amount__sum'] or 0
 
-        # Thống kê user theo role
-        users_by_role = User.objects.values('role').annotate(count=Count('id'))
+        # Base querysets — filter
+        completed_payments = Payment.objects.filter(status='completed')
+        base_candidates    = User.objects.filter(role='candidate')
+        base_employers     = User.objects.filter(role='employer')
+        base_jobs          = Job.objects.all()
 
-        # Thống kê job theo category
-        jobs_by_category = Job.objects.filter(is_active=True)\
-            .values('category__name')\
-            .annotate(count=Count('id'))\
-            .order_by('-count')[:10]
+        # Doanh thu theo tháng, quý, năm
+        revenue_by_month   = completed_payments.annotate(month=TruncMonth('paid_at')).values('month').annotate(revenue=Sum('amount')).order_by('month')
+        revenue_by_quarter = completed_payments.annotate(quarter=TruncQuarter('paid_at')).values('quarter').annotate(revenue=Sum('amount')).order_by('quarter')
+        revenue_by_year    = completed_payments.annotate(year=TruncYear('paid_at')).values('year').annotate(revenue=Sum('amount')).order_by('year')
 
-        # Doanh thu theo tháng (12 tháng gần nhất)
-        revenue_by_month = Payment.objects.filter(status='completed')\
-            .annotate(month=TruncMonth('created_at'))\
-            .values('month')\
-            .annotate(total=Sum('amount'))\
-            .order_by('-month')[:12]
+        # Ứng viên mới theo tháng, quý, năm
+        new_candidates_by_month   = base_candidates.annotate(month=TruncMonth('date_joined')).values('month').annotate(total=Count('id')).order_by('month')
+        new_candidates_by_quarter = base_candidates.annotate(quarter=TruncQuarter('date_joined')).values('quarter').annotate(total=Count('id')).order_by('quarter')
+        new_candidates_by_year    = base_candidates.annotate(year=TruncYear('date_joined')).values('year').annotate(total=Count('id')).order_by('year')
+
+        # Nhà tuyển dụng mới theo tháng, quý, năm
+        new_employers_by_month   = base_employers.annotate(month=TruncMonth('date_joined')).values('month').annotate(total=Count('id')).order_by('month')
+        new_employers_by_quarter = base_employers.annotate(quarter=TruncQuarter('date_joined')).values('quarter').annotate(total=Count('id')).order_by('quarter')
+        new_employers_by_year    = base_employers.annotate(year=TruncYear('date_joined')).values('year').annotate(total=Count('id')).order_by('year')
+
+        # Tin tuyển dụng mới theo tháng, quý, năm
+        new_jobs_by_month   = base_jobs.annotate(month=TruncMonth('created_at')).values('month').annotate(total=Count('id')).order_by('month')
+        new_jobs_by_quarter = base_jobs.annotate(quarter=TruncQuarter('created_at')).values('quarter').annotate(total=Count('id')).order_by('quarter')
+        new_jobs_by_year    = base_jobs.annotate(year=TruncYear('created_at')).values('year').annotate(total=Count('id')).order_by('year')
 
         return Response({
             'overview': {
-                'total_jobs': total_jobs,
-                'total_users': total_users,
-                'total_revenue': total_revenue,
+                'total_jobs':       total_jobs,
+                'total_candidates': total_candidates,
+                'total_employers':  total_employers,
+                'total_revenue':    total_revenue,
             },
-            'users_by_role': list(users_by_role),
-            'jobs_by_category': list(jobs_by_category),
-            'revenue_by_month': list(revenue_by_month),
+            'revenue_by_month':   list(revenue_by_month),
+            'revenue_by_quarter': list(revenue_by_quarter),
+            'revenue_by_year':    list(revenue_by_year),
+
+            'new_candidates_by_month':   list(new_candidates_by_month),
+            'new_candidates_by_quarter': list(new_candidates_by_quarter),
+            'new_candidates_by_year':    list(new_candidates_by_year),
+
+            'new_employers_by_month':   list(new_employers_by_month),
+            'new_employers_by_quarter': list(new_employers_by_quarter),
+            'new_employers_by_year':    list(new_employers_by_year),
+
+            'new_jobs_by_month':   list(new_jobs_by_month),
+            'new_jobs_by_quarter': list(new_jobs_by_quarter),
+            'new_jobs_by_year':    list(new_jobs_by_year),
         })
 
-# Thống kê cho nhà tuyển dụng
-class EmployerStatisticsViewSet(generics.GenericAPIView):
-    permission_classes = [IsVerifiedEmployer]
 
-    def get(self, request):
-        period = request.query_params.get('period', 'month')
+# Thống kê cho Employer
+class EmployerStatisticsViewSet(viewsets.ViewSet):
+    permission_classes = [IsEmployer]
 
-        # Tất cả job của employer này
-        employer_jobs = Job.objects.filter(company__owner=request.user)
+    @action(detail=False, methods=['get'], url_path='employer-dashboard')
+    def employer_dashboard(self, request):
+        user = request.user
 
-        # Tất cả application của employer
-        employer_apps = Application.objects.filter(
-            job__company__owner=request.user
-        )
+        total_jobs_posted    = Job.objects.filter(company__owner=user).count()
+        total_applications   = Application.objects.filter(job__company__owner=user).count()
+        avg_candidate_rating = Application.objects.filter(job__company__owner=user, rating__gt=0).aggregate(Avg('rating'))['rating__avg'] or 0
 
-        # Tổng quan
-        total_jobs = employer_jobs.filter(is_active=True).count()
-        total_applications = employer_apps.count()
+        # Base querysets — filter
+        base_apps = Application.objects.filter(job__company__owner=user)
+        base_jobs = Job.objects.filter(company__owner=user)
 
-        # Chất lượng ứng viên
-        quality_breakdown = employer_apps.values('status').annotate(
-            count=Count('id')
-        )
-        quality_map = {item['status']: item['count'] for item in quality_breakdown}
-        accepted = quality_map.get('ACCEPTED', 0)
-        rejected = quality_map.get('REJECTED', 0)
-        acceptance_rate = round(
-            accepted / (accepted + rejected) * 100, 1
-        ) if (accepted + rejected) > 0 else 0
+        # Đơn ứng tuyển theo tháng, quý, năm
+        apps_by_month   = base_apps.annotate(month=TruncMonth('created_at')).values('month').annotate(total=Count('id')).order_by('month')
+        apps_by_quarter = base_apps.annotate(quarter=TruncQuarter('created_at')).values('quarter').annotate(total=Count('id')).order_by('quarter')
+        apps_by_year    = base_apps.annotate(year=TruncYear('created_at')).values('year').annotate(total=Count('id')).order_by('year')
 
-        # Chọn hàm truncate theo period
-        trunc_fn_map = {
-            'month': TruncMonth,
-            'quarter': TruncQuarter,
-            'year': TruncYear,
-        }
-        trunc_fn = trunc_fn_map.get(period, TruncMonth)
-
-        # Hiệu quả đăng tin: số job tạo theo period
-        jobs_over_time = employer_jobs\
-            .annotate(period=trunc_fn('created_at'))\
-            .values('period')\
-            .annotate(jobs_posted=Count('id'))\
-            .order_by('period')
-
-        # Số đơn ứng tuyển nhận được theo period
-        apps_over_time = employer_apps\
-            .annotate(period=trunc_fn('created_at'))\
-            .values('period')\
-            .annotate(applications_received=Count('id'))\
-            .order_by('period')
-
-        # Top jobs nhận nhiều đơn nhất
-        top_jobs = employer_jobs.annotate(
-            app_count=Count('applications')
-        ).order_by('-app_count')[:5].values(
-            'id', 'title', 'app_count', 'created_at'
-        )
+        # Tin tuyển dụng đăng theo tháng, quý, năm
+        jobs_by_month   = base_jobs.annotate(month=TruncMonth('created_at')).values('month').annotate(total=Count('id')).order_by('month')
+        jobs_by_quarter = base_jobs.annotate(quarter=TruncQuarter('created_at')).values('quarter').annotate(total=Count('id')).order_by('quarter')
+        jobs_by_year    = base_jobs.annotate(year=TruncYear('created_at')).values('year').annotate(total=Count('id')).order_by('year')
 
         return Response({
             'overview': {
-                'total_active_jobs': total_jobs,
-                'total_applications': total_applications,
-                'accepted': accepted,
-                'rejected': rejected,
-                'acceptance_rate_percent': acceptance_rate,
+                'total_jobs_posted':    total_jobs_posted,
+                'total_applications':   total_applications,
+                'avg_candidate_rating': round(avg_candidate_rating, 2),
             },
-            'applications_by_status': quality_map,
-            'jobs_over_time': list(jobs_over_time),
-            'applications_over_time': list(apps_over_time),
-            'top_jobs_by_applications': list(top_jobs),
+            'applications_by_month':   list(apps_by_month),
+            'applications_by_quarter': list(apps_by_quarter),
+            'applications_by_year':    list(apps_by_year),
+
+            'jobs_by_month':   list(jobs_by_month),
+            'jobs_by_quarter': list(jobs_by_quarter),
+            'jobs_by_year':    list(jobs_by_year),
         })
