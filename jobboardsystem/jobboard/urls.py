@@ -10,10 +10,6 @@ router.register('companies', views.CompanyViewSet, basename='company')
 router.register('admin/employers', views.AdminEmployerViewSet, basename='admin-employer')
 router.register('comparison', views.JobComparisonViewSet, basename='comparison')
 router.register('payments', views.PaymentViewSet, basename='payment')
-router.register(r'statistics/admin', views.AdminStatisticsViewSet, basename='admin-statistics')
-router.register(r'statistics/employer', views.EmployerStatisticsViewSet, basename='employer-statistics')
-
-
 urlpatterns = [
     # Auth
     path('auth/register/', views.RegisterView.as_view()),
@@ -32,6 +28,7 @@ urlpatterns = [
     # Lookup
     path('categories/', views.JobCategoryListView.as_view()),
     path('skills/', views.SkillListView.as_view()),
+
 
     path('', include(router.urls)),
 ]

@@ -128,7 +128,7 @@ class JobDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'description', 'requirements',
+            'id', 'title', 'description', 'requirements', 'benefits',
             'location', 'job_type', 'deadline',
             'salary_min', 'salary_max', 'quantity',
             'company', 'company_id',
@@ -167,7 +167,7 @@ class JobCompareItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = ['id','title','salary_min','salary_max'
-                  ,'requirements','description','location','job_type',
+                  ,'requirements','description','location','job_type','benefits',
                   'company_name','company_address','category_name','category_id',
                   'skills', 'deadline','quantity','is_featured','created_at']
 
@@ -254,7 +254,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'id', 'candidate', 'job', 'job_id',
             'cover_letter', 'cv_file', 'status', 'created_at',
             'is_priority', 'priority_level',
-            'is_priority_active', 'employer_note'
+            'is_priority_active', 'employer_note','rating'
         ]
         read_only_fields = ['candidate', 'status', 'created_at','is_priority', 'priority_level']
 

@@ -1,9 +1,10 @@
 from datetime import timedelta
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 from cloudinary.models import CloudinaryField
-import random
+import random as _random
 
 from django.core.exceptions import ValidationError
 
@@ -53,7 +54,7 @@ class Skill(BaseModel):
     def __str__(self):
         return self.name
 
-class Package(models.Model):
+class Package(BaseModel):
     PACKAGE_TYPE_CHOICES = [
         ('featured_job', 'Tin tuyển dụng nổi bật'),
         ('priority_application', 'Hồ sơ ứng viên ưu tiên'),
@@ -89,10 +90,10 @@ class Job(BaseModel):
     title = models.CharField(max_length=100)
     requirements = models.TextField(null=True, blank=True)
     description = models.TextField()
+    benefits = models.TextField(null=True, blank=True)
     location =models.CharField(max_length=255, null=True, blank=True)
     job_type = models.CharField(max_length=2, choices=JOB_TYPE_CHOICES, default='FT')
     experience_required = models.CharField(max_length=100, null=True, blank=True)
-    benefits = models.TextField(null=True, blank=True)
     deadline = models.DateField(null=True, blank=True)
     salary_min = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     salary_max = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -100,6 +101,7 @@ class Job(BaseModel):
     skills = models.ManyToManyField(Skill)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='jobs')
     category = models.ForeignKey(JobCategory, on_delete=models.CASCADE, related_name='jobs')
+
 
     #Ranking
     is_featured = models.BooleanField(default=False) # đánh dấu tin nổi bật sau khi được employer thanh toán
@@ -132,25 +134,21 @@ class Job(BaseModel):
                 deadline_boost = (3 - days_to_deadline) * 20
 
         seed = self.id or (int(self.created_at.timestamp()) if self.created_at else 0)
-        random.seed(seed)
-        random_factor = random.uniform(0,10)
+        rng = _random.Random(seed)
+        random_factor = rng.uniform(0,10)
         return (self.featured_priority * 1000) + freshness_score + random_factor + deadline_boost
 
     def save(self, *args, **kwargs):
-        # Tính score trước khi save
-        if self.id:  # Job đã tồn tại
-            self.featured_score = self.calculate_score()
-        if (
-                self.featured_priority > 0
-                and self.featured_expired_at
-                and self.featured_expired_at > timezone.now()
-        ):
+        if self.featured_priority > 0 and self.featured_expired_at and self.featured_expired_at > timezone.now():
             self.is_featured = True
         else:
             self.is_featured = False
             self.featured_priority = 0
-
         super().save(*args, **kwargs)
+
+        score = self.calculate_score()
+        if score != self.featured_score:
+            Job.objects.filter(pk=self.pk).update(featured_score=score)
 
     def __str__(self):
         return self.title
@@ -176,9 +174,10 @@ class Application(BaseModel):
     candidate = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications')
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')
     cover_letter = models.TextField(null=True, blank=True)
-    cv_file = models.FileField(upload_to='jobboard/cv/', null=True, blank=True)
+    cv_file = CloudinaryField('cv_file', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     employer_note = models.TextField(null=True, blank=True)
+    rating = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
     #CV priority
     is_priority = models.BooleanField(default=False)
     priority_level = models.IntegerField(default=0)
@@ -200,6 +199,10 @@ class Application(BaseModel):
     class Meta:
         unique_together = ('candidate', 'job')
         ordering = ('-priority_level','-created_at')
+        indexes = [
+            models.Index(fields=['candidate', 'job']),
+            models.Index(fields=['status']),
+        ]
 
     def __str__(self):
         return f"{self.candidate} - {self.job}"
@@ -213,7 +216,7 @@ class CandidateProfile(BaseModel):
     ], null=True, blank=True)
     address = models.TextField(null=True, blank=True)
     bio = models.TextField(null=True, blank=True)
-    cv_file = models.FileField(upload_to='jobboard/cv/', null=True, blank=True)
+    cv_file = CloudinaryField('cv_file', blank=True, null=True)
     skills = models.ManyToManyField(Skill, blank=True)
 
     def __str__(self):
@@ -303,17 +306,18 @@ class Payment(BaseModel):
     def save(self, *args, **kwargs):
 
         self.clean()
-
         is_new_completed = (
             self.status == 'completed'
             and self.paid_at is None
         )
-        super().save(*args, **kwargs)
 
-        if is_new_completed:
-            self.paid_at = timezone.now()
-            self.apply_payment_effect()
-            super().save(update_fields=['paid_at'])
+        with transaction.atomic():
+            if is_new_completed:
+                self.paid_at = timezone.now()
+            super().save(*args, **kwargs)
+            if is_new_completed:
+                self.apply_payment_effect()
+
 
     def __str__(self):
         return f"{self.user.username} - {self.amount} - {self.method}"
