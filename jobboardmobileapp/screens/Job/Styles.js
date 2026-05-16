@@ -1,4 +1,5 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f5f5f5' },
