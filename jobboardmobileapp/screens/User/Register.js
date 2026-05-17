@@ -1,19 +1,11 @@
 import { useState } from "react";
 import { ScrollView, View, TouchableOpacity, Alert } from "react-native";
-import { Button, HelperText, TextInput, Text, SegmentedButtons, Divider } from "react-native-paper";
+import { Button, HelperText, TextInput, Text, SegmentedButtons } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
 
 import Apis, { endpoints } from "../../configs/Apis";
 import styles from "./Styles";
-
-WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_CLIENT_ID_EXPO    = "319877551032-8tc956k29ktdj6etpglibi59u7g36bhf.apps.googleusercontent.com";
-const GOOGLE_CLIENT_ID_ANDROID = "319877551032-6vq1o6m1l96tfnuf6gtbei374vcuf3re.apps.googleusercontent.com";
-const GOOGLE_CLIENT_ID_IOS     = "319877551032-tfn7kvqobte0cm5eifui1pm29t5h0hgf.apps.googleusercontent.com";
 
 const TEXT_FIELDS = [
     { field: "username", label: "Tên đăng nhập", icon: "account", keyboard: "default"       },
@@ -32,44 +24,8 @@ const Register = () => {
 
     const nav = useNavigation();
 
-    // ── Google Auth ──────────────────────────────────────────────────────────
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        clientId:        GOOGLE_CLIENT_ID_EXPO,
-        androidClientId: GOOGLE_CLIENT_ID_ANDROID,
-        iosClientId:     GOOGLE_CLIENT_ID_IOS,
-        scopes:          ["profile", "email"],
-    });
-
-    useState(() => {
-        if (response?.type === "success")
-            handleGoogleRegister(response.authentication.accessToken);
-    }, [response]);
-
-    const handleGoogleRegister = async (googleAccessToken) => {
-        setLoading(true);
-        setErr("");
-        try {
-            await Apis.post(endpoints["google_register"], {
-                google_token: googleAccessToken,
-                role:         user.role,
-            });
-            Alert.alert(
-                "Thành công!",
-                user.role === "employer"
-                    ? "Tài khoản Nhà tuyển dụng đang chờ Admin xét duyệt."
-                    : "Tài khoản đã được tạo. Bạn có thể đăng nhập ngay.",
-                [{ text: "Đăng nhập", onPress: () => nav.navigate("Login") }]
-            );
-        } catch (ex) {
-            setErr(parseError(ex) || "Đăng ký thất bại. Vui lòng thử lại!");
-            console.error("Google Register Error:", ex?.response?.data ?? ex);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ── Form thường ──────────────────────────────────────────────────────────
     const updateUser  = (field, value) => setUser(prev => ({ ...prev, [field]: value }));
+    
     const parseError  = (ex) => {
         const data = ex?.response?.data;
         if (!data) return "Không thể kết nối máy chủ. Vui lòng thử lại!";
@@ -149,25 +105,6 @@ const Register = () => {
                         Tài khoản Nhà tuyển dụng cần được Admin xét duyệt trước khi sử dụng.
                     </HelperText>
                 )}
-
-                {/* Đăng ký bằng Google */}
-                <Button
-                    mode="outlined"
-                    icon="google"
-                    disabled={!request || loading}
-                    onPress={() => promptAsync()}
-                    style={styles.googleBtn}
-                    textColor="#3B5BDB"
-                    contentStyle={styles.googleBtnContent}
-                >
-                    Đăng ký bằng Google
-                </Button>
-
-                <View style={styles.dividerRow}>
-                    <Divider style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>hoặc đăng ký thủ công</Text>
-                    <Divider style={styles.dividerLine} />
-                </View>
 
                 {err ? <HelperText type="error" visible>{err}</HelperText> : null}
 

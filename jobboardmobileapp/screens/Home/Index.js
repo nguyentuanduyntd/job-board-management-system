@@ -49,15 +49,13 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    // Debounce 500ms — chạy lại mỗi khi keyword, category, page thay đổi
     useEffect(() => {
         let timer = setTimeout(() => {
             if (page > 0) loadJobs();
         }, 500);
-        return () => clearTimeout(timer);  // cleanup timer cũ trước khi tạo mới
+        return () => clearTimeout(timer);
     }, [keyword, selectedCategory, page]);
 
-    // Reset page về 1 khi keyword hoặc category thay đổi
     useEffect(() => {
         setPage(1);
     }, [keyword, selectedCategory]);
@@ -72,12 +70,32 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    // ==================== LOAD COMPANIES ====================
+    // ==================== LOAD COMPANIES + JOB COUNT ====================
     const loadFeaturedCompanies = async () => {
         try {
             let res = await Apis.get(endpoints['companies']);
             const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
-            setFeaturedCompanies(data.slice(0, 6));
+            const companies = data.slice(0, 6);
+
+            // Hiển thị companies ngay với job_count = null (trạng thái loading)
+            setFeaturedCompanies(companies.map(c => ({ ...c, job_count: null })));
+
+            // Fetch song song số job của từng company qua filterset_fields: company
+            const withCounts = await Promise.all(
+                companies.map(async (company) => {
+                    try {
+                        const jobRes = await Apis.get(
+                            `${endpoints['jobs']}?company=${company.id}&page_size=1`
+                        );
+                        // DRF paginated response trả về { count, results, ... }
+                        const count = jobRes.data?.count ?? 0;
+                        return { ...company, job_count: count };
+                    } catch {
+                        return { ...company, job_count: 0 };
+                    }
+                })
+            );
+            setFeaturedCompanies(withCounts);
         } catch (ex) {
             console.error('Load companies error:', ex.message);
         }
@@ -148,7 +166,6 @@ export default function HomeScreen({ navigation }) {
 
     // ==================== JOB CARD ====================
     const JobCard = ({ job }) => (
-        
         <TouchableOpacity
             style={[styles.card, job.is_featured && styles.featuredCard]}
             onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
@@ -216,9 +233,13 @@ export default function HomeScreen({ navigation }) {
             )}
         </TouchableOpacity>
     );
+
     // ==================== FEATURED COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
-        <TouchableOpacity style={styles.companyCard}>
+        <TouchableOpacity 
+            style={styles.companyCard}
+            onPress={() => navigation.navigate('CompanyDetail', { companyId: company.id })}
+        >
             <Image
                 source={{ uri: company.logo_url || 'https://via.placeholder.com/80' }}
                 style={styles.companyLogo}
@@ -226,8 +247,11 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.companyCardName} numberOfLines={2}>
                 {company.name ?? ''}
             </Text>
+            {/* job_count === null nghĩa là đang fetch */}
             <Text style={styles.companyJobCount}>
-                {`${company.job_count ?? 0} việc làm`}
+                {company.job_count === null
+                    ? '...'
+                    : `${company.job_count} việc làm`}
             </Text>
         </TouchableOpacity>
     );
@@ -242,7 +266,7 @@ export default function HomeScreen({ navigation }) {
                         style={styles.searchInput}
                         placeholder="Tìm việc làm hoặc công ty"
                         value={keyword}
-                        onChangeText={setKeyword}  // debounce tự xử lý
+                        onChangeText={setKeyword}
                         returnKeyType="search"
                     />
                 </View>
@@ -307,7 +331,12 @@ export default function HomeScreen({ navigation }) {
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Nhà tuyển dụng tiêu biểu</Text>
                             <TouchableOpacity>
-                                <Text style={styles.seeAll}>Xem tất cả ›</Text>
+                                <Text 
+                                    style={styles.seeAll}
+                                    onPress={() => navigation.navigate('CompaniesList')}
+                                >
+                                    Xem tất cả ›
+                                </Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList

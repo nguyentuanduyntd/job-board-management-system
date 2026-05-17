@@ -91,6 +91,9 @@ class CompanySerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.logo.url)
         return None
 
+    def get_job_count(self, obj):
+        return obj.jobs.filter(is_active=True, status='approved').count()
+
 # JOB
 class JobListSerializer(serializers.ModelSerializer):
     # Dùng cho danh sách jobs

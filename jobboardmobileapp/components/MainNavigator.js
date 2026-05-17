@@ -14,6 +14,8 @@ import Profile from '../screens/User/Profile';
 import HomeScreen from '../screens/Home/Index';
 import { useMyUser } from '../configs/Contexts';
 import JobManagement from '../screens/Employers/JobManagement';
+import CompanyDetail from '../screens/Companies/CompanyDetail';
+import CompaniesList from '../screens/Companies/CompaniesList'
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -45,6 +47,8 @@ function HomeStack() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="HomeScreen" component={HomeScreen} />
             <Stack.Screen name="JobDetail" component={JobDetail} options={{ headerShown: true, title: 'Chi tiết' }} />
+            <Stack.Screen name="CompaniesList" component={CompaniesList} options={{ title: 'Tất cả công ty' }} />
+            <Stack.Screen name="CompanyDetail" component={CompanyDetail} />
         </Stack.Navigator>
     );
 }

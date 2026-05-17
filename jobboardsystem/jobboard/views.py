@@ -86,6 +86,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.filter(is_active=True)
     serializer_class = CompanySerializer
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {
+        'name': ['icontains'],  # bộ lọc theo name
+    }
+
     def get_permissions(self):
         #tách create và update/destroy để tránh trường hợp employer sửa/xóa company của người khác
         if self.action == 'create':
