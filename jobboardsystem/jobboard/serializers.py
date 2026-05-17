@@ -98,14 +98,22 @@ class JobListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     skills = SkillSerializer(many=True, read_only=True)
 
+    company_logo = serializers.SerializerMethodField()
+
     class Meta:
         model = Job
         fields = [
-            'id', 'title', 'company_name', 'category_name',
+            'id', 'title', 'company_name', 'category_name', 'company_logo',
             'location', 'job_type', 'salary_min', 'salary_max',
             'deadline', 'quantity', 'skills', 'created_at',
             'is_featured','featured_priority',
+            'status', 'rejection_reason',
         ]
+    
+    def get_company_logo(self, obj):
+        if obj.company and obj.company.logo:
+            return obj.company.logo.url # Trả về link Cloudinary
+        return None
 
 
 class JobDetailSerializer(serializers.ModelSerializer):
@@ -135,8 +143,9 @@ class JobDetailSerializer(serializers.ModelSerializer):
             'category', 'category_id',
             'skills', 'skill_ids',
             'is_active', 'created_at',
+            'status', 'rejection_reason',
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at','status', 'rejection_reason']
 
     #Override update để xử lý ManytoMany cho skills, dùng set
     def update(self, instance, validated_data):
@@ -333,6 +342,18 @@ class EmployerProfileAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id', 'user', 'company', 'position', 'bio','is_verified','created_at']
+
+class AdminJobSerializer(serializers.ModelSerializer):
+    company = CompanySerializer(read_only=True)
+    category = JobCategorySerializer(read_only=True)
+
+    class Meta:
+        model = Job
+        fields = [
+            'id', 'title', 'company', 'category',
+            'location', 'job_type', 'deadline',
+            'status', 'rejection_reason', 'created_at',
+        ]
 
 #Payment
 class PaymentSerializer(serializers.ModelSerializer):

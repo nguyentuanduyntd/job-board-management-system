@@ -148,6 +148,7 @@ export default function HomeScreen({ navigation }) {
 
     // ==================== JOB CARD ====================
     const JobCard = ({ job }) => (
+        
         <TouchableOpacity
             style={[styles.card, job.is_featured && styles.featuredCard]}
             onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
@@ -159,7 +160,7 @@ export default function HomeScreen({ navigation }) {
             )}
             <View style={styles.cardHeader}>
                 <Image
-                    source={{ uri: 'https://via.placeholder.com/60' }}
+                    source={{ uri: job.company_logo }}
                     style={styles.logo}
                 />
                 <View style={styles.cardInfo}>

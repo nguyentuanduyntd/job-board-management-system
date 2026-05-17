@@ -9,9 +9,9 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { authApi, endpoints } from '../../configs/Apis'; // Sửa lại import cho đúng project
-import styles from './Styles';
-
+import { authApi, endpoints } from '../../configs/Apis';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import styles, {Colors} from './Styles';
 export default function AdminDashboardScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,8 +24,9 @@ export default function AdminDashboardScreen({ navigation }) {
   const fetchData = useCallback(async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
-      // Sử dụng API của bạn
-      const res = await authApi().get(endpoints['admin-statistics']);
+      
+      const token = await AsyncStorage.getItem("token");
+      const res = await authApi(token).get(endpoints['admin-statistics']);
       setData(res.data);
     } catch (ex) {
       console.error('Load admin dashboard error:', ex.message);

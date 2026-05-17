@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles';;
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function EmployerDashboardScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,8 @@ export default function EmployerDashboardScreen({ navigation }) {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
-      const res = await authApi().get(endpoints['employer-statistics']);
+      const token = await AsyncStorage.getItem("token");
+      const res = await authApi(token).get(endpoints['employer-statistics']);
       
       setData(res.data);
     } catch (ex) {

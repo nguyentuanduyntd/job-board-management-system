@@ -73,6 +73,31 @@ export default StyleSheet.create({
         fontWeight: "bold",
         fontSize: 16,
     },
+    googleBtn: {
+        borderColor: "#3B5BDB",
+        borderRadius: 8,
+        marginTop: 8,
+        marginBottom: 8,
+    },
+    googleBtnContent: {
+        height: 46,
+    },
+
+    // ─── Divider ─────────────────────────────────────────────────────────────
+    dividerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginVertical: 16,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+    },
+    dividerText: {
+        marginHorizontal: 10,
+        color: "#888",
+        fontSize: 12,
+    },
 
     // ─── Tags & Badges ────────────────────────────────────────────────────────
     tag: {
@@ -93,7 +118,7 @@ export default StyleSheet.create({
         paddingHorizontal: 10,
     },
 
-    // ─── Footer & Links (Login + Register) ───────────────────────────────────
+    // ─── Footer & Links ───────────────────────────────────────────────────────
     footer: {
         flexDirection: "row",
         justifyContent: "center",
@@ -103,7 +128,6 @@ export default StyleSheet.create({
         color: "#3B5BDB",
         fontWeight: "bold",
     },
-    // dùng trong Login ("Đăng ký ngay") và Register ("Đăng nhập")
     registerLink: {
         color: "#3B5BDB",
         fontWeight: "bold",
@@ -130,5 +154,13 @@ export default StyleSheet.create({
     employerHint: {
         color: "#3B5BDB",
         marginBottom: 4,
+    },
+    avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: '#3B5BDB', borderRadius: 12,
+    width: 24, height: 24, justifyContent: 'center', alignItems: 'center',
+    },
+    avatarEditText: {
+        fontSize: 12,
     },
 });

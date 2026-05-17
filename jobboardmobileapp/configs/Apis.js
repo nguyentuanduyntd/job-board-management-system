@@ -1,15 +1,17 @@
 import axios from "axios";
 
-export const BASE_URL = 'http://192.168.1.213:8000/';
+export const BASE_URL = 'http://192.168.1.220:8000/';
 
 export const endpoints = {
     // Auth
     'register': '/auth/register/',
     'login' : '/auth/login/',
+    'change-password' : '/auth/change-password',
     'refresh-token' : '/auth/token/refresh/',
-    'revoke-token' : '/auth/revoke',
+    'revoke-token' : '/auth/revoke/',
     'profile' : '/auth/profile/',
-
+    'google_login':    '/auth/google-login/',
+    'google_register': '/auth/google-register/',
     // Profiles theo role
     'candidate-profile' : '/candidate/profile/',
     'employer-profile' : '/employer/profile/',
@@ -35,10 +37,13 @@ export const endpoints = {
     'company-detail' : (id) => `/companies/${id}/`,
 
     // Admin
-    'admin-employers': '/admin/employers/',
-    'admin-employers-pending': '/admin/employers/pending/',
-    'admin-employer-approve': (id) => `/admin/employers/${id}/approve/`,
-    'admin-employer-reject': (id) => `/admin/employers/${id}/reject/`,
+    // 'admin-employers': '/admin/employers/',
+    // 'admin-employers-pending': '/admin/employers/pending/',
+    // 'admin-employer-approve': (id) => `/admin/employers/${id}/approve/`,
+    // 'admin-employer-reject': (id) => `/admin/employers/${id}/reject/`,
+    'admin-jobs' : '/admin-api/jobs/',
+    'admin-job-approve' : (id) => `/admin-api/jobs/${id}/approve/`,
+    'admin-job-reject' : (id) => `/admin-api/jobs/${id}/reject/`,
 
     // Comparison
     'comparison' : '/comparison/',
@@ -59,7 +64,7 @@ export const endpoints = {
 export const authApi = (token) => axios.create({
     baseURL : BASE_URL,
     headers: {
-        'Authorization': `bearer ${token}`
+        'Authorization': `Bearer ${token}`
     }
 });
 

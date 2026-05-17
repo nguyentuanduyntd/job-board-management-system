@@ -7,7 +7,8 @@ router = DefaultRouter()
 router.register('jobs', views.JobViewSet, basename='job')
 router.register('applications', views.ApplicationViewSet, basename='application')
 router.register('companies', views.CompanyViewSet, basename='company')
-router.register('admin/employers', views.AdminEmployerViewSet, basename='admin-employer')
+router.register('admin-api/employers', views.AdminEmployerViewSet, basename='admin-employer')
+router.register(r'admin-api/jobs', views.AdminJobViewSet, basename='admin-jobs')
 router.register('comparison', views.JobComparisonViewSet, basename='comparison')
 router.register('payments', views.PaymentViewSet, basename='payment')
 router.register(r'statistics/admin', views.AdminStatisticsViewSet, basename='admin-statistics')
@@ -17,11 +18,15 @@ urlpatterns = [
     path('auth/register/', views.RegisterView.as_view()),
     #Lấy token
     path('auth/login/', oauth2_views.TokenView.as_view()),
+    path('auth/change-password', views.ChangePasswordView.as_view()),
     #Refresh token
     path('auth/token/refresh/', oauth2_views.TokenView.as_view()),
     #thu hồi token
     path('auth/revoke/', oauth2_views.RevokeTokenView.as_view()),
     path('auth/profile/', views.ProfileView.as_view()),
+    
+    path('auth/google-login/',    views.GoogleLoginView.as_view()),
+    path('auth/google-register/', views.GoogleRegisterView.as_view()),
 
     # Profiles theo role
     path('candidate/profile/', views.CandidateProfileView.as_view()),

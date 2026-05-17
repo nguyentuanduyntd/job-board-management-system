@@ -9,7 +9,12 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django.db.models import Count, Sum, Q, Avg
-
+import requests
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+from oauthlib.common import generate_token
+from oauth2_provider.models import Application, AccessToken
+from datetime import timedelta
 from .models import (
     Company, JobCategory, Skill, Job,
     Application, CandidateProfile, EmployerProfile, JobComparison, Payment
@@ -20,6 +25,7 @@ from .serializers import (
     CompanySerializer, JobCategorySerializer, SkillSerializer,
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer,
+    AdminJobSerializer,
     CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
     JobComparisonSerializer, PaymentSerializer, JobCompareItemSerializer
 )
@@ -51,6 +57,29 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+class ChangePasswordView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+        old_password     = request.data.get("old_password")
+        new_password     = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        if not all([old_password, new_password, confirm_password]):
+            return Response({"error": "Vui lòng nhập đầy đủ thông tin."}, status=400)
+        if not user.check_password(old_password):
+            return Response({"error": "Mật khẩu hiện tại không đúng."}, status=400)
+        if len(new_password) < 8:
+            return Response({"error": "Mật khẩu mới phải có ít nhất 8 ký tự."}, status=400)
+        if new_password != confirm_password:
+            return Response({"error": "Mật khẩu xác nhận không khớp."}, status=400)
+        if old_password == new_password:
+            return Response({"error": "Mật khẩu mới không được trùng mật khẩu cũ."}, status=400)   
+        
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Đổi mật khẩu thành công!"}) 
 
 # COMPANY
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -71,7 +100,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
 
 # JOB
 class JobViewSet(viewsets.ModelViewSet):
-    queryset = Job.objects.filter(is_active=True)\
+    queryset = Job.objects.filter(is_active=True, status='approved')\
         .select_related('company','category')\
         .prefetch_related('skills')\
         .order_by('-featured_score','-created_at')
@@ -414,6 +443,49 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
             status=status.HTTP_200_OK
         )
 
+class AdminJobViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAdmin]
+    serializer_class = AdminJobSerializer
+
+    def get_queryset(self):
+        return Job.objects.select_related('company', 'category').order_by('-created_at')
+
+    # GET /api/admin/jobs/
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    # GET /api/admin/jobs/pending/
+    @action(detail=False, methods=['get'], url_path='pending')
+    def pending(self, request):
+        queryset = self.get_queryset().filter(status='pending')
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    # PATCH /api/admin/jobs/{id}/approve/
+    @action(detail=True, methods=['patch'], url_path='approve')
+    def approve(self, request, pk=None):
+        job = self.get_object()
+        if job.status == 'approved':
+            return Response({'error': 'Job này đã được duyệt rồi.'}, status=400)
+        job.status = 'approved'
+        job.rejection_reason = None
+        job.save()
+        return Response({'message': f'Đã duyệt job "{job.title}".'})
+
+    # PATCH /api/admin/jobs/{id}/reject/
+    @action(detail=True, methods=['patch'], url_path='reject')
+    def reject(self, request, pk=None):
+        job = self.get_object()
+        reason = request.data.get('reason', '').strip()
+        if not reason:
+            return Response({'error': 'Cần nhập lý do từ chối.'}, status=400)
+        job.status = 'rejected'
+        job.rejection_reason = reason
+        job.save()
+        return Response({'message': f'Đã từ chối job "{job.title}".'})
+
 #Payment
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
@@ -561,3 +633,103 @@ class EmployerStatisticsViewSet(viewsets.ViewSet):
             'jobs_by_quarter': list(jobs_by_quarter),
             'jobs_by_year': list(jobs_by_year),
         })
+    
+def get_google_user_info(google_access_token):
+    try:
+        info = google_id_token.verify_oauth2_token(
+            google_access_token,  
+            google_requests.Request(),
+            "319877551032-8tc956k29ktdj6etpglibi59u7g36bhf.apps.googleusercontent.com"
+        )
+        return info
+    except Exception as e:
+        print("Google token error:", e)
+        return None
+
+def create_oauth2_token(user):
+    """Tạo OAuth2 access token cho user."""
+    from django.conf import settings
+    app = Application.objects.get(client_id=settings.CLIENT_ID)
+    AccessToken.objects.filter(user=user, application=app).delete()
+    token = AccessToken.objects.create(
+        user=user,
+        application=app,
+        token=generate_token(),
+        expires=timezone.now() + timedelta(seconds=3600),
+        scope="read write",
+    )
+    return token.token
+
+
+class GoogleLoginView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        google_token = request.data.get("google_token")
+        if not google_token:
+            return Response({"error": "Thiếu google_token"}, status=400)
+
+        info = get_google_user_info(google_token)
+        if not info or "email" not in info:
+            return Response({"error": "Token Google không hợp lệ"}, status=400)
+
+        user = User.objects.filter(email=info["email"]).first()
+        if not user:
+            return Response(
+                {"error": "Email chưa đăng ký. Vui lòng đăng ký trước."},
+                status=404,
+            )
+        if not user.is_active:
+            return Response(
+                {"error": "Tài khoản chưa được kích hoạt."},
+                status=403,
+            )
+
+        access_token = create_oauth2_token(user)
+        return Response({"access_token": access_token})
+
+
+class GoogleRegisterView(generics.GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        google_token = request.data.get("google_token")
+        role         = request.data.get("role", "candidate")
+
+        if not google_token:
+            return Response({"error": "Thiếu google_token"}, status=400)
+        if role not in ["candidate", "employer"]:
+            return Response({"error": "Role không hợp lệ"}, status=400)
+
+        info = get_google_user_info(google_token)
+        if not info or "email" not in info:
+            return Response({"error": "Token Google không hợp lệ"}, status=400)
+
+        email = info["email"]
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "Email này đã được đăng ký."}, status=400)
+
+        # Tạo username không trùng
+        base = info.get("given_name", email.split("@")[0]).lower().replace(" ", "")
+        username, suffix = base, 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base}{suffix}"
+            suffix += 1
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=None,
+            first_name=info.get("given_name", ""),
+            last_name=info.get("family_name", ""),
+            role=role,
+            is_active=(role == "candidate"),  # employer chờ admin duyệt
+        )
+
+        return Response(
+            {
+                "message": "Đăng ký thành công!",
+                "pending": role == "employer",
+            },
+            status=201,
+        )

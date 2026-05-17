@@ -87,6 +87,13 @@ class Job(BaseModel):
         ('RE', 'Remote'),
         ('FR', 'Freelance'),
     ]
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),    
+    ]
+
     title = models.CharField(max_length=100)
     requirements = models.TextField(null=True, blank=True)
     description = models.TextField()
@@ -101,7 +108,8 @@ class Job(BaseModel):
     skills = models.ManyToManyField(Skill)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='jobs')
     category = models.ForeignKey(JobCategory, on_delete=models.CASCADE, related_name='jobs')
-
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    rejection_reason = models.TextField(null=True, blank=True)
 
     #Ranking
     is_featured = models.BooleanField(default=False) # đánh dấu tin nổi bật sau khi được employer thanh toán
