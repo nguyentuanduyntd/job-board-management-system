@@ -2,13 +2,20 @@ import { useEffect, useState } from 'react';
 import {
     View, Text, FlatList, TextInput,
     TouchableOpacity, Image, ScrollView,
-    ActivityIndicator
+    ActivityIndicator, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Apis, { endpoints } from '../../configs/Apis';
 import styles from './Styles';
 
 const PAGE_SIZE = 10;
+
+const SORT_OPTIONS = [
+    { label: 'Mới nhất', value: '-created_date' },
+    { label: 'Cũ nhất', value: 'created_date' },
+    { label: 'Lương cao → thấp', value: '-salary_max' },
+    { label: 'Lương thấp → cao', value: 'salary_min' },
+];
 
 export default function HomeScreen({ navigation }) {
     const [jobs, setJobs] = useState([]);
@@ -17,6 +24,8 @@ export default function HomeScreen({ navigation }) {
     const [keyword, setKeyword] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
+    const [showSortModal, setShowSortModal] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalJobs, setTotalJobs] = useState(0);
@@ -25,22 +34,15 @@ export default function HomeScreen({ navigation }) {
     const loadJobs = async () => {
         try {
             setLoading(true);
-
-            let url = `${endpoints['jobs']}?page=${page}`;
+            let url = `${endpoints['jobs']}?page=${page}&ordering=${sortBy.value}`;
             if (keyword) url += `&search=${keyword}`;
             if (selectedCategory) url += `&category=${selectedCategory}`;
 
-            let res = await Apis.get(url);
+            const res = await Apis.get(url);
             const count = res.data?.count ?? 0;
-
             setTotalJobs(count);
             setTotalPages(Math.ceil(count / PAGE_SIZE));
-
-            if (page === 1)
-                setJobs(res.data.results);
-            else
-                setJobs(prev => [...prev, ...res.data.results]);
-
+            setJobs(page === 1 ? res.data.results : prev => [...prev, ...res.data.results]);
         } catch (ex) {
             console.error('Load jobs error:', ex.message);
             if (page === 1) setJobs([]);
@@ -50,46 +52,35 @@ export default function HomeScreen({ navigation }) {
     };
 
     useEffect(() => {
-        let timer = setTimeout(() => {
-            if (page > 0) loadJobs();
-        }, 500);
+        const timer = setTimeout(() => { if (page > 0) loadJobs(); }, 500);
         return () => clearTimeout(timer);
-    }, [keyword, selectedCategory, page]);
+    }, [keyword, selectedCategory, sortBy, page]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [keyword, selectedCategory]);
+    useEffect(() => { setPage(1); }, [keyword, selectedCategory, sortBy]);
 
     // ==================== LOAD CATEGORIES ====================
     const loadCategories = async () => {
         try {
-            let res = await Apis.get(endpoints['categories']);
+            const res = await Apis.get(endpoints['categories']);
             setCategories(Array.isArray(res.data) ? res.data : res.data?.results ?? []);
         } catch (ex) {
             console.error('Load categories error:', ex.message);
         }
     };
 
-    // ==================== LOAD COMPANIES + JOB COUNT ====================
+    // ==================== LOAD COMPANIES ====================
     const loadFeaturedCompanies = async () => {
         try {
-            let res = await Apis.get(endpoints['companies']);
+            const res = await Apis.get(endpoints['companies']);
             const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
             const companies = data.slice(0, 6);
-
-            // Hiển thị companies ngay với job_count = null (trạng thái loading)
             setFeaturedCompanies(companies.map(c => ({ ...c, job_count: null })));
 
-            // Fetch song song số job của từng company qua filterset_fields: company
             const withCounts = await Promise.all(
                 companies.map(async (company) => {
                     try {
-                        const jobRes = await Apis.get(
-                            `${endpoints['jobs']}?company=${company.id}&page_size=1`
-                        );
-                        // DRF paginated response trả về { count, results, ... }
-                        const count = jobRes.data?.count ?? 0;
-                        return { ...company, job_count: count };
+                        const jobRes = await Apis.get(`${endpoints['jobs']}?company=${company.id}&page_size=1`);
+                        return { ...company, job_count: jobRes.data?.count ?? 0 };
                     } catch {
                         return { ...company, job_count: 0 };
                     }
@@ -114,11 +105,10 @@ export default function HomeScreen({ navigation }) {
 
     const Paginator = () => {
         if (totalPages <= 1) return null;
-
         const getPageNumbers = () => {
-            let pages = [];
-            let start = Math.max(1, page - 2);
-            let end = Math.min(totalPages, page + 2);
+            const pages = [];
+            const start = Math.max(1, page - 2);
+            const end = Math.min(totalPages, page + 2);
             if (start > 1) pages.push(1);
             if (start > 2) pages.push('...');
             for (let i = start; i <= end; i++) pages.push(i);
@@ -137,7 +127,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={[styles.pageBtnText, page === 1 && styles.pageBtnTextDisabled]}>‹</Text>
                 </TouchableOpacity>
 
-                {getPageNumbers().map((p, index) => (
+                {getPageNumbers().map((p, index) =>
                     p === '...' ? (
                         <Text key={`dot-${index}`} style={styles.pageDots}>...</Text>
                     ) : (
@@ -146,12 +136,10 @@ export default function HomeScreen({ navigation }) {
                             style={[styles.pageBtn, page === p && styles.pageBtnActive]}
                             onPress={() => handlePageChange(p)}
                         >
-                            <Text style={[styles.pageBtnText, page === p && styles.pageBtnTextActive]}>
-                                {p}
-                            </Text>
+                            <Text style={[styles.pageBtnText, page === p && styles.pageBtnTextActive]}>{p}</Text>
                         </TouchableOpacity>
                     )
-                ))}
+                )}
 
                 <TouchableOpacity
                     style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
@@ -176,20 +164,13 @@ export default function HomeScreen({ navigation }) {
                 </View>
             )}
             <View style={styles.cardHeader}>
-                <Image
-                    source={{ uri: job.company_logo }}
-                    style={styles.logo}
-                />
+                <Image source={{ uri: job.company_logo }} style={styles.logo} />
                 <View style={styles.cardInfo}>
-                    <Text style={styles.jobTitle} numberOfLines={2}>
-                        {job.title ?? ''}
-                    </Text>
-                    <Text style={styles.companyName} numberOfLines={1}>
-                        {job.company_name ?? ''}
-                    </Text>
+                    <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
+                    <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
                     <Text style={styles.salary}>
                         {job.salary_min && job.salary_max
-                            ? `${(job.salary_min / 1e6).toFixed(0)}-${(job.salary_max / 1e6).toFixed(0)} triệu`
+                            ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
                             : 'Thỏa thuận'}
                         {job.location ? ` | ${job.location}` : ''}
                     </Text>
@@ -234,9 +215,9 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    // ==================== FEATURED COMPANY CARD ====================
+    // ==================== COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={styles.companyCard}
             onPress={() => navigation.navigate('CompanyDetail', { companyId: company.id })}
         >
@@ -244,33 +225,56 @@ export default function HomeScreen({ navigation }) {
                 source={{ uri: company.logo_url || 'https://via.placeholder.com/80' }}
                 style={styles.companyLogo}
             />
-            <Text style={styles.companyCardName} numberOfLines={2}>
-                {company.name ?? ''}
-            </Text>
-            {/* job_count === null nghĩa là đang fetch */}
+            <Text style={styles.companyCardName} numberOfLines={2}>{company.name ?? ''}</Text>
             <Text style={styles.companyJobCount}>
-                {company.job_count === null
-                    ? '...'
-                    : `${company.job_count} việc làm`}
+                {company.job_count === null ? '...' : `${company.job_count} việc làm`}
             </Text>
         </TouchableOpacity>
+    );
+
+    // ==================== SORT MODAL ====================
+    const SortModal = () => (
+        <Modal transparent visible={showSortModal} animationType="fade" onRequestClose={() => setShowSortModal(false)}>
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSortModal(false)}>
+                <View style={styles.modalBox}>
+                    <Text style={styles.modalTitle}>Sắp xếp theo</Text>
+                    {SORT_OPTIONS.map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            style={[styles.modalOption, sortBy.value === opt.value && styles.modalOptionActive]}
+                            onPress={() => { setSortBy(opt); setShowSortModal(false); }}
+                        >
+                            <Text style={[styles.modalOptionText, sortBy.value === opt.value && styles.modalOptionTextActive]}>
+                                {opt.label}
+                            </Text>
+                            {sortBy.value === opt.value && <Text style={styles.modalCheck}>✓</Text>}
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </TouchableOpacity>
+        </Modal>
     );
 
     // ==================== RENDER ====================
     return (
         <SafeAreaView style={styles.container}>
-            {/* Search */}
+            {/* Header: Search + Sort */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchRow}>
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Tìm việc làm hoặc công ty"
+                        placeholder="Tìm việc làm..."
                         value={keyword}
                         onChangeText={setKeyword}
                         returnKeyType="search"
                     />
+                    <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortModal(true)}>
+                        <Text style={styles.sortBtnIcon}>⇅</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
+
+            <SortModal />
 
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Categories */}
@@ -285,18 +289,10 @@ export default function HomeScreen({ navigation }) {
                             style={styles.categoryList}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    style={[
-                                        styles.categoryItem,
-                                        selectedCategory === item.id && styles.categoryItemActive
-                                    ]}
-                                    onPress={() => setSelectedCategory(
-                                        selectedCategory === item.id ? null : item.id
-                                    )}
+                                    style={[styles.categoryItem, selectedCategory === item.id && styles.categoryItemActive]}
+                                    onPress={() => setSelectedCategory(selectedCategory === item.id ? null : item.id)}
                                 >
-                                    <Text style={[
-                                        styles.categoryText,
-                                        selectedCategory === item.id && styles.categoryTextActive
-                                    ]}>
+                                    <Text style={[styles.categoryText, selectedCategory === item.id && styles.categoryTextActive]}>
                                         {item.name}
                                     </Text>
                                 </TouchableOpacity>
@@ -308,9 +304,12 @@ export default function HomeScreen({ navigation }) {
                 {/* Job list header */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Việc làm mới nhất</Text>
-                    {totalJobs > 0 && (
-                        <Text style={styles.totalCount}>{totalJobs} việc làm</Text>
-                    )}
+                    <View style={styles.jobHeaderRight}>
+                        {totalJobs > 0 && <Text style={styles.totalCount}>{totalJobs} việc làm</Text>}
+                        <TouchableOpacity style={styles.sortChip} onPress={() => setShowSortModal(true)}>
+                            <Text style={styles.sortChipText}>{sortBy.label} ▾</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Jobs */}
@@ -322,7 +321,6 @@ export default function HomeScreen({ navigation }) {
                     jobs.map(job => <JobCard key={job.id.toString()} job={job} />)
                 )}
 
-                {/* Paginator */}
                 {!loading && <Paginator />}
 
                 {/* Featured Companies */}
@@ -330,13 +328,8 @@ export default function HomeScreen({ navigation }) {
                     <>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Nhà tuyển dụng tiêu biểu</Text>
-                            <TouchableOpacity>
-                                <Text 
-                                    style={styles.seeAll}
-                                    onPress={() => navigation.navigate('CompaniesList')}
-                                >
-                                    Xem tất cả ›
-                                </Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('CompaniesList')}>
+                                <Text style={styles.seeAll}>Xem tất cả ›</Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList

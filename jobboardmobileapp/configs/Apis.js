@@ -27,7 +27,7 @@ export const endpoints = {
     'my-jobs': '/jobs/my-jobs/', // employer xem job của mình
     
     //Application
-    'applications': '/applications',
+    'applications': '/applications/',
     'application-detail': (id) => `/applications/${id}/`,
     'application-update-status':(id) => `/applications/${id}/update-status/`,
     'application-add-note':     (id) => `/applications/${id}/add-note/`,
@@ -51,6 +51,9 @@ export const endpoints = {
     'comparison-suggest': '/comparison/suggest/',
     'comparison-add-job': (id) => `/comparison/${id}/add-job/`,
     'comparison-remove-job': (id) => `/comparison/${id}/remove-job/`,
+
+    //Package
+    'packages' : '/packages/',
 
     // Payment
     'payments' : '/payments/',

@@ -247,29 +247,6 @@ export default StyleSheet.create({
         minHeight: 80,
         textAlignVertical: 'top',
     },
-    cvOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 10,
-        marginBottom: 8,
-    },
-    cvOptionActive: {
-        borderColor: '#3B5BDB',
-        backgroundColor: '#EEF2FF',
-    },
-    cvOptionText: {
-        fontSize: 14,
-        color: '#333',
-        marginLeft: 10,
-        flex: 1,
-    },
-    cvOptionTextActive: {
-        color: '#3B5BDB',
-        fontWeight: '600',
-    },
     submitBtn: {
         backgroundColor: '#3B5BDB',
         borderRadius: 30,
@@ -290,5 +267,41 @@ export default StyleSheet.create({
     cancelBtnText: {
         color: '#888',
         fontSize: 15,
+    },
+
+    // ==================== CV UPLOAD ====================
+    cvUploadBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 10,
+        borderStyle: 'dashed',
+        backgroundColor: '#fafafa',
+        gap: 8,
+    },
+    cvUploadBtnSelected: {
+        borderColor: '#3B5BDB',
+        borderStyle: 'solid',
+        backgroundColor: '#EEF2FF',
+    },
+    cvUploadIcon: {
+        fontSize: 18,
+    },
+    cvUploadText: {
+        flex: 1,
+        fontSize: 14,
+        color: '#888',
+    },
+    cvUploadTextSelected: {
+        color: '#3B5BDB',
+        fontWeight: '600',
+    },
+    cvRemoveIcon: {
+        fontSize: 14,
+        color: '#E53E3E',
+        fontWeight: 'bold',
+        paddingHorizontal: 4,
     },
 });

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import (
-    Company, JobCategory, Skill, Job,
+    Company, JobCategory, Skill, Job, Package,
     Application, CandidateProfile, EmployerProfile, JobComparison, Payment
 )
 
@@ -69,7 +69,6 @@ class JobCategorySerializer(serializers.ModelSerializer):
         model = JobCategory
         fields = ['id', 'name']
 
-
 # COMPANY
 #Success
 class CompanySerializer(serializers.ModelSerializer):
@@ -117,7 +116,6 @@ class JobListSerializer(serializers.ModelSerializer):
         if obj.company and obj.company.logo:
             return obj.company.logo.url # Trả về link Cloudinary
         return None
-
 
 class JobDetailSerializer(serializers.ModelSerializer):
     # Dùng cho chi tiết job, tạo, sửa
@@ -255,6 +253,7 @@ class CandidatePublicSerializer(serializers.ModelSerializer):
 class ApplicationSerializer(serializers.ModelSerializer):
     candidate = CandidatePublicSerializer(read_only=True)
     job = JobListSerializer(read_only=True)
+    cv_file_url = serializers.SerializerMethodField()
     job_id = serializers.PrimaryKeyRelatedField(
         queryset=Job.objects.all(), write_only=True, source='job'
     )
@@ -265,13 +264,18 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'candidate', 'job', 'job_id',
             'cover_letter', 'cv_file', 'status', 'created_at',
-            'is_priority', 'priority_level',
+            'is_priority', 'priority_level', 'cv_file_url',
             'is_priority_active', 'employer_note','rating'
         ]
         read_only_fields = ['candidate', 'status', 'created_at','is_priority', 'priority_level']
 
     def get_is_priority_active(self, obj):
         return obj.is_priority_active()
+    
+    def get_cv_file_url(self, obj):
+        if obj.cv_file:
+            return obj.cv_file.url
+        return None
 
     def validate(self, data):
         request = self.context['request']
@@ -287,6 +291,8 @@ class ApplicationSerializer(serializers.ModelSerializer):
             if Application.objects.filter(candidate=request.user,job=job).exists():
                 raise serializers.ValidationError('Bạn đã ứng tuyển vị trí này rồi!')
         return data
+    
+    
 
 class ApplicationEmployerNoteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -357,6 +363,12 @@ class AdminJobSerializer(serializers.ModelSerializer):
             'location', 'job_type', 'deadline',
             'status', 'rejection_reason', 'created_at',
         ]
+
+#Package
+class PackageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = ['id', 'name', 'package_type', 'level', 'duration_days', 'price', 'description']
 
 #Payment
 class PaymentSerializer(serializers.ModelSerializer):

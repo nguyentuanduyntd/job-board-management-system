@@ -14,8 +14,10 @@ import Profile from '../screens/User/Profile';
 import HomeScreen from '../screens/Home/Index';
 import { useMyUser } from '../configs/Contexts';
 import JobManagement from '../screens/Employers/JobManagement';
+import EmployerApplications from '../screens/Employers/EmployerApplications';
 import CompanyDetail from '../screens/Companies/CompanyDetail';
 import CompaniesList from '../screens/Companies/CompaniesList'
+import HistoryApplications from '../screens/Candidate/HistoryApplications';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -49,6 +51,19 @@ function HomeStack() {
             <Stack.Screen name="JobDetail" component={JobDetail} options={{ headerShown: true, title: 'Chi tiết' }} />
             <Stack.Screen name="CompaniesList" component={CompaniesList} options={{ title: 'Tất cả công ty' }} />
             <Stack.Screen name="CompanyDetail" component={CompanyDetail} />
+        </Stack.Navigator>
+    );
+}
+
+function HistoryStack() {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="HistoryApplications" component={HistoryApplications} />
+            <Stack.Screen
+                name="JobDetail"
+                component={JobDetail}
+                options={{ headerShown: true, title: 'Chi tiết việc làm' }}
+            />
         </Stack.Navigator>
     );
 }
@@ -93,7 +108,7 @@ function CandidateTab() {
                 const icons = {
                     'Trang chủ': 'home',
                     'Hồ sơ': 'document-text',
-                    'Công cụ': 'construct',
+                    'Lịch sử': 'time-outline',
                     'Chat': 'chatbubble',
                     'Tài khoản': 'person',
                 };
@@ -105,7 +120,7 @@ function CandidateTab() {
         })}>
             <Tab.Screen name="Trang chủ" component={HomeStack} />
             <Tab.Screen name="Hồ sơ" component={PlaceholderScreen('Hồ sơ')} />
-            <Tab.Screen name="Công cụ" component={PlaceholderScreen('Công cụ')} />
+            <Tab.Screen name="Lịch sử" component={HistoryStack} />
             <Tab.Screen name="Chat" component={PlaceholderScreen('Chat')} />
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>
@@ -172,7 +187,7 @@ function EmployerTab() {
         >
             <Tab.Screen name="Thống kê" component={EmployerStack} />
             <Tab.Screen name="Bài đăng" component={JobManagement} />
-            <Tab.Screen name="Đơn ứng tuyển" component={PlaceholderScreen('Đơn ứng tuyển')} />
+            <Tab.Screen name="Đơn ứng tuyển" component={EmployerApplications} />
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>
     );

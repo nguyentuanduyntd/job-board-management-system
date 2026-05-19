@@ -9,8 +9,8 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = "HaeHYPoxhSNu3RwkOeb2g163T28Gd1eTp9w2VY0k";
-const CLIENT_SECRET = "1WlAa13P3spqN4hC3pYIxbbhD4BcVSrplb8HQmDIpQer8xjeVncUj77uQs3AjQUALc6TpRxgq2wGvEFt3CHmRLNJ47NSaWdReXfICFNaZNSqWTsKyPXxAsRETevVdvNY";
+const CLIENT_ID     = "gjsYTHm5CxV8q6hZPh9xmRw4LxuzvafNp2mLBDTO";
+const CLIENT_SECRET = "KsABPiesYMIHB0sUsjiWyCvBVtjLVZaMkjqpq136lQXqjJF4ev2KxzeWSqRYL9bIeGvwJwr7SGiKs6XdEHjpbaIlGTdVrBxeabVkJUZPKJNTaYZ9u3EktNR41WbgdKCl";
 
 const Login = () => {
     const [user, setUser]         = useState({ username: "", password: "" });
@@ -25,7 +25,7 @@ const Login = () => {
 
     const fetchProfile = async (token) => {
         const u = await authApi(token).get(endpoints["profile"]);
-        dispatch({ type: "login", payload: u.data });
+        dispatch({ type: "login", payload: { ...u.data, token} });
     };
 
     const handleLogin = async () => {

@@ -3,249 +3,319 @@ import {
     View, Text, Image, ScrollView, TouchableOpacity,
     ActivityIndicator, Modal, TextInput, Alert, Linking
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import Apis, {authApi, endpoints} from '../../configs/Apis';
-import {useMyUser} from '../../configs/Contexts';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as DocumentPicker from 'expo-document-picker';
+import Apis, { authApi, endpoints } from '../../configs/Apis';
+import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
+import axios from "axios";
 
-export default function JobDetail({ route, navigation}){
+// ====== CÁC COMPONENT CON ĐƯỢC TÁCH RA NGOÀI ======
 
-    const {jobId} = route.params;
+const DescriptionTab = ({ job }) => (
+    <ScrollView style={styles.content}>
+        <Text style={styles.sectionTitle}>Thông tin chung</Text>
+        <View style={styles.infoGrid}>
+            <View style={styles.infoGridItem}>
+                <Text style={styles.infoGridLabel}>Loại hình</Text>
+                <Text style={styles.infoGridValue}>
+                    {job.job_type === 'FT' ? 'Toàn thời gian'
+                        : job.job_type === 'PT' ? 'Bán thời gian'
+                        : job.job_type === 'RE' ? 'Từ xa'
+                        : 'Freelance'}
+                </Text>
+            </View>
+            <View style={styles.infoGridItem}>
+                <Text style={styles.infoGridLabel}>Số lượng</Text>
+                <Text style={styles.infoGridValue}>{job.quantity ?? 1} người</Text>
+            </View>
+            <View style={styles.infoGridItem}>
+                <Text style={styles.infoGridLabel}>Ngày đăng</Text>
+                <Text style={styles.infoGridValue}>
+                    {new Date(job.created_at).toLocaleDateString('vi-VN')}
+                </Text>
+            </View>
+            <View style={styles.infoGridItem}>
+                <Text style={styles.infoGridLabel}>Kinh nghiệm</Text>
+                <Text style={styles.infoGridValue}>
+                    {job.experience_required ?? 'Không yêu cầu'}
+                </Text>
+            </View>
+        </View>
+
+        {job.skills?.length > 0 && (
+            <>
+                <Text style={styles.sectionTitle}>Kỹ năng yêu cầu</Text>
+                <View style={styles.skillRow}>
+                    {job.skills.map(skill => (
+                        <View key={skill.id} style={styles.skillTag}>
+                            <Text style={styles.skillText}>{skill.name ?? ''}</Text>
+                        </View>
+                    ))}
+                </View>
+            </>
+        )}
+        {!!job.description && (
+            <>
+                <Text style={styles.sectionTitle}>Mô tả công việc</Text>
+                <Text style={styles.contentText}>{job.description}</Text>
+            </>
+        )}
+        {!!job.requirements && (
+            <>
+                <Text style={styles.sectionTitle}>Yêu cầu ứng viên</Text>
+                <Text style={styles.contentText}>{job.requirements}</Text>
+            </>
+        )}
+        {!!job.benefits && (
+            <>
+                <Text style={styles.sectionTitle}>Chế độ đãi ngộ</Text>
+                <Text style={styles.contentText}>{job.benefits}</Text>
+            </>
+        )}
+        <View style={{ height: 100 }} />
+    </ScrollView>
+);
+
+const CompanyTab = ({ job }) => (
+    <ScrollView style={styles.content}>
+        <Image
+            source={{ uri: job.company?.logo_url || 'https://via.placeholder.com/80' }}
+            style={styles.companyDetailLogo}
+        />
+        <Text style={styles.companyDetailName}>{job.company?.name ?? ''}</Text>
+
+        {!!job.company?.address && (
+            <View style={styles.companyInfoRow}>
+                <Text style={styles.companyInfoIcon}></Text>
+                <Text style={styles.companyInfoText}>{job.company.address}</Text>
+            </View>
+        )}
+        {!!job.company?.website && (
+            <View style={styles.companyInfoRow}>
+                <Text style={styles.companyInfoIcon}></Text>
+                <TouchableOpacity onPress={() => Linking.openURL(job.company.website)}>
+                    <Text style={styles.websiteText}>{job.company.website}</Text>
+                </TouchableOpacity>
+            </View>
+        )}
+        {!!job.company?.description && (
+            <>
+                <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Giới thiệu công ty</Text>
+                <Text style={styles.contentText}>{job.company.description}</Text>
+            </>
+        )}
+        <View style={{ height: 100 }} />
+    </ScrollView>
+);
+
+const ApplyModal = ({ visible, onClose, cvFile, setCvFile, coverLetter, setCoverLetter, onPickCV, onSubmit, submitting }) => (
+    <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+    >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Nộp đơn ứng tuyển</Text>
+
+                {/* ── Tải CV lên ── */}
+                <Text style={styles.modalLabel}>
+                    Tải CV lên <Text style={{ color: '#E53E3E' }}>*</Text>
+                </Text>
+
+                <TouchableOpacity
+                    style={[
+                        styles.cvUploadBtn,
+                        cvFile && styles.cvUploadBtnSelected,
+                    ]}
+                    onPress={onPickCV}
+                >
+                    <Text style={styles.cvUploadIcon}>📎</Text>
+                    <Text
+                        style={[
+                            styles.cvUploadText,
+                            cvFile && styles.cvUploadTextSelected,
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="middle"
+                    >
+                        {cvFile ? cvFile.name : 'Chọn file CV (PDF, DOC, DOCX · tối đa 5MB)'}
+                    </Text>
+                    {cvFile && (
+                        <TouchableOpacity
+                            onPress={() => setCvFile(null)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Text style={styles.cvRemoveIcon}>✕</Text>
+                        </TouchableOpacity>
+                    )}
+                </TouchableOpacity>
+
+                {/* ── Thư xin việc (tùy chọn) ── */}
+                <Text style={styles.modalLabel}>Thư xin việc (tùy chọn)</Text>
+                <TextInput
+                    style={styles.modalInput}
+                    placeholder="Viết thư xin việc của bạn..."
+                    value={coverLetter}
+                    onChangeText={setCoverLetter}
+                    multiline
+                    numberOfLines={4}
+                />
+
+                {/* ── Submit ── */}
+                <TouchableOpacity
+                    style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+                    onPress={onSubmit}
+                    disabled={submitting}
+                >
+                    {submitting
+                        ? <ActivityIndicator color="#fff" />
+                        : <Text style={styles.submitBtnText}>Xác nhận nộp đơn</Text>
+                    }
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={onClose}
+                >
+                    <Text style={styles.cancelBtnText}>Huỷ</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    </Modal>
+);
+
+// ====== COMPONENT CHÍNH ======
+
+export default function JobDetail({ route, navigation }) {
+    const { jobId } = route.params;
     const user = useMyUser();
 
-    const [job,setJob] = useState(null);
+    const [job, setJob] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('description')
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [coverLetter, setCoverLetter] = useState('');
-    const [cvOption, setCvOption] = useState('profile');
+    const [cvFile, setCvFile] = useState(null);         // file CV đã chọn
     const [submitting, setSubmitting] = useState(false);
     const [hasApplied, setHasApplied] = useState(false);
 
     //Load job detail
-    const loadJob = async () =>{
+    const loadJob = async () => {
         try {
             setLoading(true);
             let res = await Apis.get(endpoints['job-detail'](jobId));
             setJob(res.data);
-        } catch (ex){
+        } catch (ex) {
             console.error('Loading job error:', ex.message);
-            Alert.alert('Lỗi','Không thể tải thông tin việc làm');
+            Alert.alert('Lỗi', 'Không thể tải thông tin việc làm');
         } finally {
             setLoading(false);
         }
     };
 
     //Kiểm tra đã ứng tuyển chưa
-    const checkApplied = async () =>{
-        if (!user) return;
-        try{
-            let res = await authApi(user.token).get(endpoints['applications']);
-            const apps = res.data?.results ?? res.data ?? [];
-            const applied = apps.some(a => a.job?.id === jobId);
-            setHasApplied(applied);
-        } catch (ex){
-            console.error('Check applied error:', ex.message);
+    const checkApplied = async () => {
+        if (!user?.token) return;
+        try {
+            // Lọc theo job_id thay vì lấy toàn bộ list → tránh RuntimeError 500
+            const url = endpoints['check-applied']?.(jobId)
+                ?? `${endpoints['applications']}?job_id=${jobId}`;
+            let res = await authApi(user.token).get(url);
+
+            // Hỗ trợ 2 kiểu response:
+            // 1. { has_applied: true }   2. array / paginated list
+            if (typeof res.data?.has_applied === 'boolean') {
+                setHasApplied(res.data.has_applied);
+            } else {
+                const apps = res.data?.results ?? res.data ?? [];
+                setHasApplied(Array.isArray(apps) && apps.length > 0);
+            }
+        } catch (ex) {
+            const status = ex.response?.status;
+            if (status === 401) {
+                console.warn('checkApplied: token het han');
+            } else if (status === 403) {
+                console.warn('checkApplied: khong co quyen');
+            } else {
+                // 500 / RuntimeError backend -> chi warn, khong Alert crash man hinh
+                console.warn('checkApplied loi, bo qua:', status, ex.message);
+            }
         }
     };
 
     useEffect(() => {
         loadJob();
         checkApplied();
-    },[jobId]);
+    }, [jobId]);
 
-    const handleApply = async () =>{
-        if (!user){
-            Alert.alert('Thông báo','Vui lòng đăng nhập để ứng tuyển');
+    // Chọn file CV từ thiết bị
+    const handlePickCV = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+            // Giới hạn 5MB
+            if (file.size && file.size > 5 * 1024 * 1024) {
+                Alert.alert('Lỗi', 'File CV không được vượt quá 5MB');
+                return;
+            }
+            setCvFile(file);
+        } catch (ex) {
+            console.error('Pick CV error:', ex.message);
+            Alert.alert('Lỗi', 'Không thể chọn file');
+        }
+    };
+
+    const handleApply = async () => {
+        if (!user?.token) {
+            Alert.alert('Thông báo', 'Vui lòng đăng nhập để ứng tuyển');
             navigation.navigate('Login');
             return;
         }
+        if (!cvFile) {
+            Alert.alert('Thông báo', 'Vui lòng tải lên CV của bạn');
+            return;
+        }
         setSubmitting(true);
-        try{
+        try {
             let formData = new FormData();
             formData.append('job_id', jobId);
-            if (coverLetter.trim()){
+            // Đính kèm file CV
+            formData.append('cv_file', {
+                uri: cvFile.uri,
+                name: cvFile.name,
+                type: cvFile.mimeType ?? 'application/octet-stream',
+            });
+            if (coverLetter.trim()) {
                 formData.append('cover_letter', coverLetter.trim());
             }
-            await authApi(user.token).post(endpoints['applications'], formData,{
-                headers: {'Content-Type':'multipart/form-data'}
+            await authApi(user.token).post(endpoints['applications'], formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             setHasApplied(true);
             setShowApplyModal(false);
-            Alert.alert('Thành công','Nộp đơn ứng tuyển thành công!');
-        } catch (ex){
+            Alert.alert('Thành công', 'Nộp đơn ứng tuyển thành công!');
+        } catch (ex) {
             const errMsg = ex.response?.data ? Object.values(ex.response.data).flat().join('\n') : 'Có lỗi xảy ra';
             Alert.alert('Lỗi', errMsg);
-        } finally{
+        } finally {
             setSubmitting(false);
         }
     };
-    //Tab mô tả
-    const DescriptionTab = () => (
-        <ScrollView style={styles.content}>
-            <Text style={styles.sectionTitle}>Thông tin chung</Text>
-            <View style={styles.infoGrid}>
-                <View style={styles.infoGridItem}>
-                    <Text style={styles.infoGridLabel}>Loại hình</Text>
-                    <Text style={styles.infoGridValue}>
-                        {job.job_type === 'FT' ? 'Toàn thời gian'
-                            : job.job_type === 'PT' ? 'Bán thời gian'
-                            : job.job_type === 'RE' ? 'Từ xa'
-                            : 'Freelance'}
-                    </Text>
-                </View>
-                <View style={styles.infoGridItem}>
-                    <Text style={styles.infoGridLabel}>Số lượng</Text>
-                    <Text style={styles.infoGridValue}>{job.quantity ?? 1} người</Text>
-                </View>
-                <View style={styles.infoGridItem}>
-                    <Text style={styles.infoGridLabel}>Ngày đăng</Text>
-                    <Text style={styles.infoGridValue}>
-                        {new Date(job.created_at).toLocaleDateString('vi-VN')}
-                    </Text>
-                </View>
-                <View style={styles.infoGridItem}>
-                    <Text style={styles.infoGridLabel}>Kinh nghiệm</Text>
-                    <Text style={styles.infoGridValue}>
-                        {job.experience_required ?? 'Không yêu cầu'}
-                    </Text>
-                </View>
-            </View>
 
-            {/*Kỹ năng*/}
-            {job.skills?.length > 0 && (
-                <>
-                    <Text style={styles.sectionTitle}>Kỹ năng yêu cầu</Text>
-                    <View style={styles.skillRow}>
-                        {job.skills.map(skill => (
-                            <View key={skill.id} style={styles.skillTag}>
-                                <Text style={styles.skillText}>{skill.name ?? ''}</Text>
-                            </View>
-                        ))}
-                    </View>
-                </>
-            )}
-            {/*Mô tả*/}
-            {!!job.description && (
-                <>
-                    <Text style={styles.sectionTitle}>Mô tả công việc</Text>
-                    <Text style={styles.contentText}>{job.description}</Text>
-                </>
-            )}
-            {/*Yêu cầu*/}
-            {!!job.requirements && (
-                <>
-                    <Text style={styles.sectionTitle}>Yêu cầu ứng viên</Text>
-                    <Text style={styles.contentText}>{job.requirements}</Text>
-                </>
-            )}
-            {/*Phúc lợi*/}
-            {!!job.benefits && (
-                <>
-                    <Text style={styles.sectionTitle}>Chế độ đãi ngộ</Text>
-                    <Text style={styles.contentText}>{job.benefits}</Text>
-                </>
-            )}
-            <View style={{ height: 100 }} />
-        </ScrollView>
-    );
-    // Tab Công ty
-    const CompanyTab = () => (
-        <ScrollView style={styles.content}>
-            <Image
-                source={{ uri: job.company?.logo_url || 'https://via.placeholder.com/80' }}
-                style={styles.companyDetailLogo}
-            />
-            <Text style={styles.companyDetailName}>{job.company?.name ?? ''}</Text>
-
-            {!!job.company?.address && (
-                <View style={styles.companyInfoRow}>
-                    <Text style={styles.companyInfoIcon}></Text>
-                    <Text style={styles.companyInfoText}>{job.company.address}</Text>
-                </View>
-            )}
-            {!!job.company?.website && (
-                <View style={styles.companyInfoRow}>
-                    <Text style={styles.companyInfoIcon}></Text>
-                    <TouchableOpacity onPress={() => Linking.openURL(job.company.website)}>
-                        <Text style={styles.websiteText}>{job.company.website}</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-            {!!job.company?.description && (
-                <>
-                    <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Giới thiệu công ty</Text>
-                    <Text style={styles.contentText}>{job.company.description}</Text>
-                </>    
-            )}
-            <View style={{ height: 100 }} />
-        </ScrollView>
-    );
-
-    //Modal nộp đơn
-    const ApplyModal = () => (
-        <Modal
-            visible={showApplyModal}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowApplyModal(false)}
-        >
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <Text style={styles.modalTitle}>Nộp đơn ứng tuyển</Text>
-
-                    {/*CV option*/}
-                    <Text style={styles.modalLabel}>Chọn CV</Text>
-                    <TouchableOpacity
-                        style={[styles.cvOption, cvOption === 'profile' && styles.cvOptionActive]}
-                        onPress={() => setCvOption('profile')}
-                    >
-                        <Text style={styles.companyInfoIcon}></Text>
-                        <Text style={[
-                            styles.cvOptionText,
-                            cvOption === 'profile' && styles.cvOptionTextActive
-                        ]}>
-                            Dùng CV từ hồ sơ của tôi
-                        </Text>
-                        {cvOption === 'profile' && <Text>✓</Text>}
-                    </TouchableOpacity>
-
-                    {/*Cover letter*/}
-                    <Text style={styles.modalLabel}>Thư xin việc (tùy chọn)</Text>
-                    <TextInput
-                        style={styles.modalInput}
-                        placeholder="Viết thư xin việc của bạn..."
-                        value={coverLetter}
-                        onChangeText={setCoverLetter}
-                        multiline
-                        numberOfLines={4}
-                    />
-
-                    {/*Submit*/}
-                    <TouchableOpacity
-                        style={[styles.submitBtn, submitting && { opacity: 0.7}]}
-                        onPress={handleApply}
-                        disabled={submitting}
-                    >
-                        {submitting
-                            ? <ActivityIndicator color="#fff"/>
-                            : <Text style={styles.submitBtnText}>Xác nhận nộp đơn</Text>
-                        }
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.cancelBtn}
-                        onPress={() => setShowApplyModal(false)}
-                    >
-                        <Text style={styles.cancelBtnText}>Huỷ</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
-    );
     if (loading) {
         return (
             <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color="#3B5BDB"/>
+                <ActivityIndicator size="large" color="#3B5BDB" />
             </SafeAreaView>
         );
     }
@@ -255,6 +325,7 @@ export default function JobDetail({ route, navigation}){
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView stickyHeaderIndices={[1]} showsHorizontalScrollIndicator={false}>
+                
                 {/*Header*/}
                 <View style={styles.header}>
                     {job.is_featured && (
@@ -273,7 +344,7 @@ export default function JobDetail({ route, navigation}){
                         <Text style={styles.companyName}>{job.company?.name ?? ''}</Text>
                     </View>
 
-                     {/* Salary */}
+                    {/* Salary */}
                     <View style={styles.infoRow}>
                         <Text style={styles.infoIcon}></Text>
                         <View>
@@ -285,6 +356,7 @@ export default function JobDetail({ route, navigation}){
                             </Text>
                         </View>
                     </View>
+                    
                     {/* Deadline */}
                     {!!job.deadline && (
                         <View style={styles.infoRow}>
@@ -297,6 +369,7 @@ export default function JobDetail({ route, navigation}){
                             </View>
                         </View>
                     )}
+                    
                     {/* Location */}
                     {!!job.location && (
                         <View style={styles.infoRow}>
@@ -307,6 +380,7 @@ export default function JobDetail({ route, navigation}){
                             </View>
                         </View>
                     )}
+                    
                     {/* Category */}
                     {!!job.category?.name && (
                         <View style={styles.infoRow}>
@@ -318,6 +392,7 @@ export default function JobDetail({ route, navigation}){
                         </View>
                     )}
                 </View>
+
                 {/* Tabs — sticky */}
                 <View style={styles.tabContainer}>
                     {[
@@ -339,9 +414,11 @@ export default function JobDetail({ route, navigation}){
                     ))}
                 </View>
 
-                {/*Tab content*/}
-                {activeTab === 'description' ? <DescriptionTab/> : <CompanyTab/>}
+                {/* Tab content (Đã sử dụng component bên ngoài) */}
+                {activeTab === 'description' ? <DescriptionTab job={job} /> : <CompanyTab job={job} />}
+                
             </ScrollView>
+
             {/* Apply button */}
             <View style={styles.applyContainer}>
                 <TouchableOpacity
@@ -350,12 +427,23 @@ export default function JobDetail({ route, navigation}){
                     disabled={hasApplied}
                 >
                     <Text style={styles.applyBtnText}>
-                        {hasApplied ? ' Đã ứng tuyển' : 'Nộp đơn ứng tuyển'}
+                        {hasApplied ? '✓ Đã ứng tuyển' : 'Nộp đơn ứng tuyển'}
                     </Text>
                 </TouchableOpacity>
             </View>
 
-            <ApplyModal />
+            {/* Modal Nộp Đơn (Đã sử dụng component bên ngoài) */}
+            <ApplyModal
+                visible={showApplyModal}
+                onClose={() => setShowApplyModal(false)}
+                cvFile={cvFile}
+                setCvFile={setCvFile}
+                coverLetter={coverLetter}
+                setCoverLetter={setCoverLetter}
+                onPickCV={handlePickCV}
+                onSubmit={handleApply}
+                submitting={submitting}
+            />
         </SafeAreaView>
     );
 }
