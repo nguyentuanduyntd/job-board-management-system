@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ScrollView, View, TouchableOpacity } from "react-native";
-import { Button, HelperText, TextInput, Text, Divider } from "react-native-paper";
+import { ScrollView, View, TouchableOpacity, Alert } from "react-native";
+import { Button, HelperText, TextInput, Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,8 +9,8 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = "gjsYTHm5CxV8q6hZPh9xmRw4LxuzvafNp2mLBDTO";
-const CLIENT_SECRET = "KsABPiesYMIHB0sUsjiWyCvBVtjLVZaMkjqpq136lQXqjJF4ev2KxzeWSqRYL9bIeGvwJwr7SGiKs6XdEHjpbaIlGTdVrBxeabVkJUZPKJNTaYZ9u3EktNR41WbgdKCl";
+const CLIENT_ID     = "wCYXI0rSRejtewRGuBzQh79JiqSm3p07lMWqCbAv";
+const CLIENT_SECRET = "rYg3Dzx7HZatdIjVrVimxkGYKrFIGgZQrFQH7KHaKMVYtA9lEyZZguYR38Flg68LWUxTkIOoZqOEdH7uhaAAN9jXbzDnPAXUsrFHsFwiO1yo8goXwk6Bco5trBrqqujV";
 
 const Login = () => {
     const [user, setUser]         = useState({ username: "", password: "" });
@@ -25,7 +25,8 @@ const Login = () => {
 
     const fetchProfile = async (token) => {
         const u = await authApi(token).get(endpoints["profile"]);
-        dispatch({ type: "login", payload: { ...u.data, token} });
+        dispatch({ type: "login", payload: { ...u.data, token } });
+        return u.data;
     };
 
     const handleLogin = async () => {
@@ -35,23 +36,50 @@ const Login = () => {
         }
         setErr("");
         setLoading(true);
+
         try {
-            const formBody = Object.keys({
+            const params = {
                 username:      user.username,
                 password:      user.password,
                 client_id:     CLIENT_ID,
                 client_secret: CLIENT_SECRET,
                 grant_type:    "password",
-            }).map(k => `${encodeURIComponent(k)}=${encodeURIComponent({ username: user.username, password: user.password, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: "password" }[k])}`)
-              .join("&");
+            };
+            const formBody = Object.keys(params)
+                .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+                .join("&");
 
             const res = await Apis.post(endpoints["login"], formBody, {
                 headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
             });
 
             await AsyncStorage.setItem("token", res.data.access_token);
-            await fetchProfile(res.data.access_token);
-        } catch {
+            const userData = await fetchProfile(res.data.access_token);
+
+            // Điều hướng theo role
+            if (userData.role === "admin")         nav.navigate("AdminHome");
+            else if (userData.role === "employer") nav.navigate("EmployerHome");
+            else                                   nav.navigate("Trang chủ");
+
+        } catch (ex) {
+            const data = ex?.response?.data;
+
+            // ✅ Django OAuth Toolkit trả error="invalid_grant" khi is_active=False
+            // Phân biệt với sai mật khẩu bằng cách thử parse username từ context
+            // Cách đơn giản nhất: check thêm error_description có chứa "inactive"
+            if (
+                data?.error === "invalid_grant" &&
+                data?.error_description?.toLowerCase().includes("inactive")
+            ) {
+                Alert.alert(
+                    "Tài khoản chưa được kích hoạt",
+                    "Tài khoản Nhà tuyển dụng của bạn đang chờ Admin xét duyệt.\nVui lòng thử lại sau khi được phê duyệt.",
+                    [{ text: "Đã hiểu" }]
+                );
+                return;
+            }
+
+            // Sai username / password hoặc lỗi khác
             setErr("Tên đăng nhập hoặc mật khẩu không chính xác!");
         } finally {
             setLoading(false);
@@ -61,6 +89,7 @@ const Login = () => {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
+
                 <View style={styles.headerContainer}>
                     <Text style={styles.title}>ĐĂNG NHẬP</Text>
                 </View>
@@ -113,6 +142,7 @@ const Login = () => {
                         <Text style={styles.registerLink}>Đăng ký ngay</Text>
                     </TouchableOpacity>
                 </View>
+
             </ScrollView>
         </SafeAreaView>
     );

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const BASE_URL = 'http://192.168.1.100:8000/';
+export const BASE_URL = 'http://192.168.88.88:8000/';
 
 export const endpoints = {
     // Auth
@@ -38,9 +38,10 @@ export const endpoints = {
 
     // Admin
     // 'admin-employers': '/admin/employers/',
-    // 'admin-employers-pending': '/admin/employers/pending/',
-    // 'admin-employer-approve': (id) => `/admin/employers/${id}/approve/`,
-    // 'admin-employer-reject': (id) => `/admin/employers/${id}/reject/`,
+    'admin-pending-employers': '/admin-api/employers/pending/', 
+    'admin-employer-approve': (id) => `/admin-api/employers/${id}/approve/`,
+    'admin-employer-reject': (id) => `/admin-api/employers/${id}/reject/`,
+    
     'admin-jobs' : '/admin-api/jobs/',
     'admin-job-approve' : (id) => `/admin-api/jobs/${id}/approve/`,
     'admin-job-reject' : (id) => `/admin-api/jobs/${id}/reject/`,

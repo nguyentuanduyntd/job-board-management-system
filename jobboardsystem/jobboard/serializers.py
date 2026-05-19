@@ -26,6 +26,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
+
+        # Employer chưa được duyệt thì không đăng nhập được
+        if validated_data.get('role') == 'employer':
+            validated_data['is_active'] = False
+
         return User.objects.create_user(**validated_data)
 
 #Update again

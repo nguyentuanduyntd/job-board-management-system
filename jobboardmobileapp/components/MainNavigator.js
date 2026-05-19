@@ -18,6 +18,7 @@ import EmployerApplications from '../screens/Employers/EmployerApplications';
 import CompanyDetail from '../screens/Companies/CompanyDetail';
 import CompaniesList from '../screens/Companies/CompaniesList'
 import HistoryApplications from '../screens/Candidate/HistoryApplications';
+import AdminUpdateStatusEmployer from '../screens/Admin/AdminUpdateStatusEmployer';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -100,6 +101,18 @@ function AdminApprovalStack() {
     );
 }
 
+function AdminEmployerApprovalStack() {
+    return (
+        <Stack.Navigator>
+            <Stack.Screen
+                name="AdminUpdateStatusEmployer"
+                component={AdminUpdateStatusEmployer}
+                options={{ headerShown: false }}
+            />
+        </Stack.Navigator>
+    );
+}
+
 // ─── Tab Candidate ────────────────────────────────────────────────────────────
 function CandidateTab() {
     return (
@@ -128,15 +141,16 @@ function CandidateTab() {
 }
 
 // ─── Tab Admin ────────────────────────────────────────────────────────────────
+// ─── Tab Admin ────────────────────────────────────────────────────────────────
 function AdminTab() {
     return (
         <Tab.Navigator
-            initialRouteName="Thống kê"
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ color, size }) => {
                     const icons = {
                         'Thống kê':      'stats-chart',
                         'Duyệt bài':     'checkmark-circle',
+                        'Duyệt Cty':     'people-circle', // Thêm Icon này cho Tab mới
                         'Tài khoản':     'person',
                     };
                     return <Ionicons name={icons[route.name]} size={size} color={color} />;
@@ -148,16 +162,17 @@ function AdminTab() {
         >
             <Tab.Screen name="Thống kê" component={AdminStack} />
 
-            {/* Tab duyệt bài — hiện badge số bài chờ duyệt nếu muốn thì có thể
-                dùng tabBarBadge từ context/state global sau này */}
             <Tab.Screen
                 name="Duyệt bài"
                 component={AdminApprovalStack}
-                options={{
-                    tabBarLabel: 'Duyệt bài',
-                    // Uncomment dòng dưới để hiện số badge khi có context global:
-                    // tabBarBadge: pendingCount || null,
-                }}
+                options={{ tabBarLabel: 'Duyệt bài' }}
+            />
+
+            {/* THÊM TAB MỚI Ở ĐÂY */}
+            <Tab.Screen
+                name="Duyệt Cty"
+                component={AdminEmployerApprovalStack}
+                options={{ tabBarLabel: 'Duyệt Cty' }}
             />
 
             <Tab.Screen name="Tài khoản" component={AccountStack} />
@@ -169,7 +184,6 @@ function AdminTab() {
 function EmployerTab() {
     return (
         <Tab.Navigator
-            initialRouteName="Thống kê"
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ color, size }) => {
                     const icons = {

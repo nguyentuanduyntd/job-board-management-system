@@ -395,53 +395,77 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
         return profile
 
 
+from rest_framework import viewsets, status, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import EmployerProfile
+from .serializers import EmployerProfileAdminSerializer, EmployerVerifySerializer
+from .permissions import IsAdmin  # Hoặc permissions.IsAdminUser tùy cấu hình của bạn
+
+
 class AdminEmployerViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAdmin]
+
+    # Định nghĩa cấu trúc Queryset gốc: Ép quét sâu Database ngay từ đầu bằng _base_manager
+    # Điều này giúp hàm self.get_queryset() và self.get_object() mặc định của DRF không bị lỗi chặn ngầm hoặc lỗi 404
+    def get_queryset(self):
+        return EmployerProfile._base_manager.select_related('user', 'company').order_by('-id')
+
     def get_serializer_class(self):
-        if self.action in ['approve','reject']:
+        if self.action in ['approve', 'reject']:
             return EmployerVerifySerializer
         return EmployerProfileAdminSerializer
 
+    # GET /admin-api/employers/ -> Lấy tất cả (Giống như bên AdminJobViewSet)
     def list(self, request):
         queryset = self.get_queryset()
-        serializer = EmployerProfileAdminSerializer(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    # GET /admin-api/employers/pending/ -> Lấy danh sách chờ duyệt (Giống như bên AdminJobViewSet)
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        queryset = self.get_queryset().filter(is_active=False)
-        serializer = EmployerProfileAdminSerializer(queryset, many=True)
+        # Kế thừa từ get_queryset() gốc và lọc ra những tài khoản có user đang bị khóa
+        queryset = self.get_queryset().filter(user__is_active=False)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    # PATCH /admin-api/employers/{id}/approve/ -> Duyệt tài khoản (Giống như bên AdminJobViewSet)
     @action(detail=True, methods=['patch'], url_path='approve')
     def approve(self, request, pk=None):
+        # Tự động lấy object thông qua cấu trúc chuẩn của DRF
         profile = self.get_object()
+
         if profile.is_verified:
-            return Response(
-                {'error': 'Tài khoản này đã được duyệt rồi'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Tài khoản này đã được duyệt rồi.'}, status=400)
+
+        # Cập nhật trạng thái xác minh hồ sơ
         profile.is_verified = True
         profile.save()
-        return Response(
-            {'message': f'Đã duyệt tài khoản {profile.user.username}.'},
-            status=status.HTTP_200_OK
-        )
 
+        # Kích hoạt tài khoản User liên kết để chuyển dấu X đỏ thành V xanh
+        user = profile.user
+        user.is_active = True
+        user.save()
+
+        return Response({'message': f'Đã duyệt và kích hoạt tài khoản "{user.username}".'})
+
+    # PATCH /admin-api/employers/{id}/reject/ -> Từ chối/Khóa tài khoản (Giống như bên AdminJobViewSet)
     @action(detail=True, methods=['patch'], url_path='reject')
     def reject(self, request, pk=None):
+        # Tự động lấy object thông qua cấu trúc chuẩn của DRF
         profile = self.get_object()
-        if not profile.is_verified:
-            return Response(
-                {'error':'Tài khoản này chưa được duyệt.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        # Thu hồi trạng thái xác minh hồ sơ
         profile.is_verified = False
         profile.save()
-        return Response(
-            {'message': f'Đã thu hồi xác minh tài khoản {profile.user.username}.'},
-            status=status.HTTP_200_OK
-        )
 
+        # Khóa quyền hoạt động/đăng nhập của User liên kết
+        user = profile.user
+        user.is_active = False
+        user.save()
+
+        return Response({'message': f'Đã từ chối xác minh và khóa tài khoản "{user.username}".'})
 
 class AdminJobViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
