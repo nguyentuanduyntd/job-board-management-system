@@ -36,7 +36,8 @@
           "merchantIdentifier": "merchant.com.jobboard",
           "enableGooglePay": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

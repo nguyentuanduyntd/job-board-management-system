@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-    View,Text,ScrollView,TouchableOpacity,ActivityIndicator,RefreshControl,
-    Modal,TextInput,Alert,StyleSheet,Animated,
+    View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
+    Modal, TextInput, Alert, StyleSheet, Animated, KeyboardAvoidingView, Platform // Thêm KeyboardAvoidingView và Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,7 +9,7 @@ import { authApi, endpoints } from '../../configs/Apis';
 import { Colors as C, approvalStyles as s } from './Styles';
 import { Ionicons } from '@expo/vector-icons';
 
-// ─── Rejection Modal ──────────────────────────────────────────────────────────
+// ─── Rejection Modal (ĐB ĐÃ SỬA CHỐNG BÀN PHÍM CHE KHUẤT) ─────────────────────
 const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
     const [reason, setReason] = useState('');
  
@@ -19,45 +19,50 @@ const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
  
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-            <View style={s.overlay}>
-                <View style={s.modalCard}>
-                    <View style={s.modalHeader}>
-                        <View style={s.modalIconWrap}>
-                            <Text style={s.modalIcon}>✕</Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={s.overlay}>
+                    <View style={s.modalCard}>
+                        <View style={s.modalHeader}>
+                            <View style={s.modalIconWrap}>
+                                <Text style={s.modalIcon}>✕</Text>
+                            </View>
+                            <Text style={s.modalTitle}>Từ chối bài đăng</Text>
+                            <Text style={s.modalSub} numberOfLines={2}>"{jobTitle}"</Text>
                         </View>
-                        <Text style={s.modalTitle}>Từ chối bài đăng</Text>
-                        <Text style={s.modalSub} numberOfLines={2}>"{jobTitle}"</Text>
-                    </View>
- 
-                    <Text style={s.modalLabel}>Lý do từ chối *</Text>
-                    <TextInput
-                        style={s.modalInput}
-                        placeholder="Nhập lý do để thông báo cho nhà tuyển dụng..."
-                        placeholderTextColor={C.textMuted}
-                        value={reason}
-                        onChangeText={setReason}
-                        multiline
-                        numberOfLines={4}
-                        textAlignVertical="top"
-                    />
- 
-                    <View style={s.modalActions}>
-                        <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-                            <Text style={s.cancelBtnText}>Hủy</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[s.rejectConfirmBtn, (!reason.trim() || loading) && { opacity: 0.5 }]}
-                            onPress={() => reason.trim() && onConfirm(reason.trim())}
-                            disabled={!reason.trim() || loading}
-                        >
-                            {loading
-                                ? <ActivityIndicator size="small" color="#fff" />
-                                : <Text style={s.rejectConfirmBtnText}>Xác nhận từ chối</Text>
-                            }
-                        </TouchableOpacity>
+     
+                        <Text style={s.modalLabel}>Lý do từ chối *</Text>
+                        <TextInput
+                            style={s.modalInput}
+                            placeholder="Nhập lý do để thông báo cho nhà tuyển dụng..."
+                            placeholderTextColor={C.textMuted}
+                            value={reason}
+                            onChangeText={setReason}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                        />
+     
+                        <View style={s.modalActions}>
+                            <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
+                                <Text style={s.cancelBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[s.rejectConfirmBtn, (!reason.trim() || loading) && { opacity: 0.5 }]}
+                                onPress={() => reason.trim() && onConfirm(reason.trim())}
+                                disabled={!reason.trim() || loading}
+                            >
+                                {loading
+                                    ? <ActivityIndicator size="small" color="#fff" />
+                                    : <Text style={s.rejectConfirmBtnText}>Xác nhận từ chối</Text>
+                                }
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
@@ -312,14 +317,13 @@ export default function AdminJobApproval() {
     const [showDetail, setShowDetail]       = useState(false);
     const [showReject, setShowReject]       = useState(false);
     const [rejectTarget, setRejectTarget]   = useState(null);
-    const [actionLoading, setActionLoading] = useState(null); // job.id hoặc 'modal'
+    const [actionLoading, setActionLoading] = useState(null);
  
     // ── Fetch ──────────────────────────────────────────────────────────────────
     const fetchJobs = useCallback(async (isRefresh = false) => {
         try {
             isRefresh ? setRefreshing(true) : setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            // Fetch tất cả jobs, filter phía client để hỗ trợ switch tab không cần refetch
             const res = await authApi(token).get(endpoints['admin-jobs']);
             setJobs(res.data);
         } catch (ex) {
@@ -506,4 +510,3 @@ export default function AdminJobApproval() {
         </SafeAreaView>
     );
 }
- 

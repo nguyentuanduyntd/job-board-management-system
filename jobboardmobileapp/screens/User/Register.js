@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Alert } from "react-native";
+import { ScrollView, View, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { Button, HelperText, TextInput, Text, SegmentedButtons } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -74,114 +74,122 @@ const Register = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1, backgroundColor: '#fff' }} 
+        >
+            <SafeAreaView style={[styles.container, { flex: 1 }]}>
+                <ScrollView 
+                    contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.headerContainer}>
+                        <Text style={styles.title}>ĐĂNG KÝ</Text>
+                    </View>
 
-                <View style={styles.headerContainer}>
-                    <Text style={styles.title}>ĐĂNG KÝ</Text>
-                </View>
+                    {/* Chọn vai trò */}
+                    <Text style={styles.roleLabel}>Bạn là</Text>
+                    <SegmentedButtons
+                        value={user.role}
+                        onValueChange={val => updateUser("role", val)}
+                        style={styles.roleToggle}
+                        buttons={[
+                            {
+                                value: "candidate", label: "Ứng viên", icon: "account-search",
+                                checkedColor: "#3B5BDB",
+                                style: user.role === "candidate" ? styles.roleActive : styles.roleInactive,
+                            },
+                            {
+                                value: "employer", label: "Nhà tuyển dụng", icon: "domain",
+                                checkedColor: "#3B5BDB",
+                                style: user.role === "employer" ? styles.roleActive : styles.roleInactive,
+                            },
+                        ]}
+                    />
+                    {user.role === "employer" && (
+                        <HelperText type="info" visible style={styles.employerHint}>
+                            Tài khoản Nhà tuyển dụng cần được Admin xét duyệt trước khi sử dụng.
+                        </HelperText>
+                    )}
 
-                {/* Chọn vai trò */}
-                <Text style={styles.roleLabel}>Bạn là</Text>
-                <SegmentedButtons
-                    value={user.role}
-                    onValueChange={val => updateUser("role", val)}
-                    style={styles.roleToggle}
-                    buttons={[
-                        {
-                            value: "candidate", label: "Ứng viên", icon: "account-search",
-                            checkedColor: "#3B5BDB",
-                            style: user.role === "candidate" ? styles.roleActive : styles.roleInactive,
-                        },
-                        {
-                            value: "employer", label: "Nhà tuyển dụng", icon: "domain",
-                            checkedColor: "#3B5BDB",
-                            style: user.role === "employer" ? styles.roleActive : styles.roleInactive,
-                        },
-                    ]}
-                />
-                {user.role === "employer" && (
-                    <HelperText type="info" visible style={styles.employerHint}>
-                        Tài khoản Nhà tuyển dụng cần được Admin xét duyệt trước khi sử dụng.
-                    </HelperText>
-                )}
+                    {err ? <HelperText type="error" visible>{err}</HelperText> : null}
 
-                {err ? <HelperText type="error" visible>{err}</HelperText> : null}
+                    {/* Text fields */}
+                    {TEXT_FIELDS.map(i => (
+                        <TextInput
+                            key={i.field}
+                            label={i.label}
+                            value={user[i.field]}
+                            onChangeText={t => updateUser(i.field, t)}
+                            style={styles.input}
+                            right={<TextInput.Icon icon={i.icon} />}
+                            mode="outlined"
+                            outlineColor="#3B5BDB"
+                            activeOutlineColor="#3B5BDB"
+                            keyboardType={i.keyboard}
+                            autoCapitalize="none"
+                        />
+                    ))}
 
-                {/* Text fields */}
-                {TEXT_FIELDS.map(i => (
+                    {/* Password */}
                     <TextInput
-                        key={i.field}
-                        label={i.label}
-                        value={user[i.field]}
-                        onChangeText={t => updateUser(i.field, t)}
+                        label="Mật khẩu"
+                        value={user.password}
+                        onChangeText={t => updateUser("password", t)}
                         style={styles.input}
-                        right={<TextInput.Icon icon={i.icon} />}
+                        secureTextEntry={!showPass}
+                        right={
+                            <TextInput.Icon
+                                icon={showPass ? "eye-off" : "eye"}
+                                onPress={() => setShowPass(p => !p)}
+                            />
+                        }
                         mode="outlined"
                         outlineColor="#3B5BDB"
                         activeOutlineColor="#3B5BDB"
-                        keyboardType={i.keyboard}
                         autoCapitalize="none"
                     />
-                ))}
 
-                {/* Password */}
-                <TextInput
-                    label="Mật khẩu"
-                    value={user.password}
-                    onChangeText={t => updateUser("password", t)}
-                    style={styles.input}
-                    secureTextEntry={!showPass}
-                    right={
-                        <TextInput.Icon
-                            icon={showPass ? "eye-off" : "eye"}
-                            onPress={() => setShowPass(p => !p)}
-                        />
-                    }
-                    mode="outlined"
-                    outlineColor="#3B5BDB"
-                    activeOutlineColor="#3B5BDB"
-                    autoCapitalize="none"
-                />
+                    {/* Confirm Password */}
+                    <TextInput
+                        label="Xác nhận mật khẩu"
+                        value={user.confirm_password}
+                        onChangeText={t => updateUser("confirm_password", t)}
+                        style={styles.input}
+                        secureTextEntry={!showConfirm}
+                        right={
+                            <TextInput.Icon
+                                icon={showConfirm ? "eye-off" : "eye"}
+                                onPress={() => setShowConfirm(p => !p)}
+                            />
+                        }
+                        mode="outlined"
+                        outlineColor="#3B5BDB"
+                        activeOutlineColor="#3B5BDB"
+                        autoCapitalize="none"
+                    />
 
-                {/* Confirm Password */}
-                <TextInput
-                    label="Xác nhận mật khẩu"
-                    value={user.confirm_password}
-                    onChangeText={t => updateUser("confirm_password", t)}
-                    style={styles.input}
-                    secureTextEntry={!showConfirm}
-                    right={
-                        <TextInput.Icon
-                            icon={showConfirm ? "eye-off" : "eye"}
-                            onPress={() => setShowConfirm(p => !p)}
-                        />
-                    }
-                    mode="outlined"
-                    outlineColor="#3B5BDB"
-                    activeOutlineColor="#3B5BDB"
-                    autoCapitalize="none"
-                />
+                    <Button
+                        mode="contained"
+                        loading={loading}
+                        disabled={loading}
+                        onPress={handleRegister}
+                        style={styles.submitBtn}
+                    >
+                        <Text style={styles.submitBtnText}>ĐĂNG KÝ</Text>
+                    </Button>
 
-                <Button
-                    mode="contained"
-                    loading={loading}
-                    disabled={loading}
-                    onPress={handleRegister}
-                    style={styles.submitBtn}
-                >
-                    <Text style={styles.submitBtnText}>ĐĂNG KÝ</Text>
-                </Button>
+                    <View style={styles.footer}>
+                        <Text>Đã có tài khoản? </Text>
+                        <TouchableOpacity onPress={() => nav.navigate("Login")}>
+                            <Text style={styles.registerLink}>Đăng nhập</Text>
+                        </TouchableOpacity>
+                    </View>
 
-                <View style={styles.footer}>
-                    <Text>Đã có tài khoản? </Text>
-                    <TouchableOpacity onPress={() => nav.navigate("Login")}>
-                        <Text style={styles.registerLink}>Đăng nhập</Text>
-                    </TouchableOpacity>
-                </View>
-
-            </ScrollView>
-        </SafeAreaView>
+                </ScrollView>
+            </SafeAreaView>
+        </KeyboardAvoidingView>
     );
 };
 

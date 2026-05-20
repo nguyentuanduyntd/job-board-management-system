@@ -9,13 +9,13 @@ export const Colors = {
     border:     '#EAECF0',
     accent:     '#2563EB',
     accentLight:'#EFF6FF', 
-    accentBdr:  '#C5D0FF', // Được bổ sung thêm cho CompanyInfo
+    accentBdr:  '#C5D0FF', 
     green:      '#16A34A',
     yellow:     '#D97706',
     red:        '#DC2626',
-    danger:     '#EF4444', // Bổ sung
-    dangerBg:   '#FEF2F2', // Bổ sung
-    dangerBdr:  '#FECACA', // Bổ sung
+    danger:     '#EF4444',
+    dangerBg:   '#FEF2F2', 
+    dangerBdr:  '#FECACA', 
     purple:     '#7C3AED',
     text:       '#111827',
     textMuted:  '#9AA5B4',

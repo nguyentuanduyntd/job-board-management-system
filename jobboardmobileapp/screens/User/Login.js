@@ -9,8 +9,8 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = "gjsYTHm5CxV8q6hZPh9xmRw4LxuzvafNp2mLBDTO";
-const CLIENT_SECRET = "KsABPiesYMIHB0sUsjiWyCvBVtjLVZaMkjqpq136lQXqjJF4ev2KxzeWSqRYL9bIeGvwJwr7SGiKs6XdEHjpbaIlGTdVrBxeabVkJUZPKJNTaYZ9u3EktNR41WbgdKCl";
+const CLIENT_ID     = "Kt5xTc3dBwaB8x3u7QagVKIpheeQlKlLF9JpD5op";
+const CLIENT_SECRET = "KmAPyd56bJnDvGamxRWCr3tVkptRx9mgPz3ac13Jpchtyhsg9vi3H0rLe9wzQfcruELQGMSvUrgdOZPqgXBeJl58IDqfNbWg7DhGeUrkIgyGZ83ef0MyeOrL6D4X9R1R";
 
 const Login = () => {
     const [user, setUser]         = useState({ username: "", password: "" });
@@ -53,20 +53,22 @@ const Login = () => {
                 headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
             });
 
+            // 1. Lưu token vào bộ nhớ máy để các API sau này bóc tách sử dụng
             await AsyncStorage.setItem("token", res.data.access_token);
+            
+            // 2. Lấy dữ liệu Profile chi tiết từ Backend
             const userData = await fetchProfile(res.data.access_token);
 
-            // Điều hướng theo role
-            if (userData.role === "admin")         nav.navigate("AdminHome");
-            else if (userData.role === "employer") nav.navigate("EmployerHome");
-            else                                   nav.navigate("Trang chủ");
+            // 3. ✅ ĐÃ SỬA: Đẩy thông tin userData vào Context toàn cục 
+            // Bạn hãy đổi dòng dưới đây theo đúng hàm cập nhật Context trong dự án của bạn 
+            // (Ví dụ: loginUser(userData) hoặc dispatch({ type: 'login', payload: userData }))
+            dispatch({ type: "login", payload: userData }); 
+
+            // ✅ XOÁ BỎ TOÀN BỘ CỤM ĐIỀU HƯỚNG THEO ROLE (nav.navigate) Ở ĐÂY.
+            // Hệ thống MainNavigator sẽ tự đọc 'user.role' mới và chuyển đổi giao diện mượt mà!
 
         } catch (ex) {
             const data = ex?.response?.data;
-
-            // ✅ Django OAuth Toolkit trả error="invalid_grant" khi is_active=False
-            // Phân biệt với sai mật khẩu bằng cách thử parse username từ context
-            // Cách đơn giản nhất: check thêm error_description có chứa "inactive"
             if (
                 data?.error === "invalid_grant" &&
                 data?.error_description?.toLowerCase().includes("inactive")

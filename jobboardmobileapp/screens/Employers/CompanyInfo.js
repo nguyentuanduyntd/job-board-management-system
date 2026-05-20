@@ -24,10 +24,10 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
         if (visible) {
             if (isEdit) {
                 setForm({
-                    name:        company.name        || '',
+                    name: company.name || '',
                     description: company.description || '',
-                    website:     company.website     || '',
-                    address:     company.address     || '',
+                    website: company.website || '',
+                    address: company.address || '',
                 });
                 setLogoUri(company.logo_url || null);
             } else {
@@ -58,13 +58,13 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            const api   = authApi(token);
+            const api = authApi(token);
 
             const fd = new FormData();
-            
-            fd.append('name',        form.name.trim());
-            if (form.description.trim()){
-                fd.append('description',form.description.trim());
+
+            fd.append('name', form.name.trim());
+            if (form.description.trim()) {
+                fd.append('description', form.description.trim());
             }
             if (form.website.trim()) {
                 fd.append('website', form.website.trim());
@@ -78,10 +78,10 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                 const match = /\.(\w+)$/.exec(filename);
                 const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-                fd.append('logo', { 
-                    uri: logoUri, 
-                    name: filename, 
-                    type: type 
+                fd.append('logo', {
+                    uri: logoUri,
+                    name: filename,
+                    type: type
                 });
             }
 
@@ -91,13 +91,14 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             } else {
-                res = await api.post(endpoints['my-companies'], fd, {
+                const currentUrl = endpoints['companies'] || '/companies/';
+                res = await api.post(currentUrl, fd, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             }
             onSaved(res.data);
             onClose();
-            } catch (ex) {
+        } catch (ex) {
             // Log ra để sau này nếu có lỗi khác mình dễ check
             console.log("LỖI TỪ BACKEND:", JSON.stringify(ex.response?.data));
 
@@ -144,7 +145,7 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                 <View style={styles.formOverlay}>
                     <View style={styles.formCard}>
                         <View style={styles.handleBar} />
-                        
+
                         {/* Header */}
                         <View style={styles.formHeader}>
                             <Text style={styles.formTitle}>{isEdit ? 'Chỉnh sửa công ty' : 'Thêm thông tin công ty'}</Text>
@@ -255,22 +256,22 @@ const InfoRow = ({ icon, label, value }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function CompanyInfo() {
-    const [companies, setCompanies]       = useState([]);
-    const [loading, setLoading]           = useState(true);
-    const [refreshing, setRefreshing]     = useState(false);
-    const [showForm, setShowForm]         = useState(false);
-    const [editTarget, setEditTarget]     = useState(null);
-    const [showDelete, setShowDelete]     = useState(false);
+    const [companies, setCompanies] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const [editTarget, setEditTarget] = useState(null);
+    const [showDelete, setShowDelete] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
-    const [deleting, setDeleting]         = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     // ── Fetch my companies ────────────────────────────────────────────────────
     const fetchCompanies = useCallback(async (isRefresh = false) => {
         try {
             isRefresh ? setRefreshing(true) : setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            const res   = await authApi(token).get(endpoints['my-companies']);
-            const data  = res.data;
+            const res = await authApi(token).get(endpoints['my-companies']);
+            const data = res.data;
             setCompanies(Array.isArray(data) ? data : data?.results || []);
         } catch (ex) {
             Alert.alert('Lỗi', 'Không thể tải thông tin công ty.');
@@ -409,8 +410,8 @@ export default function CompanyInfo() {
                             {/* Info rows */}
                             <View style={styles.divider} />
                             <View style={styles.infoGrid}>
-                                <InfoRow icon="mail-outline"   label="Email"   value={company.owner?.email} />
-                                <InfoRow icon="globe-outline"  label="Website" value={company.website} />
+                                <InfoRow icon="mail-outline" label="Email" value={company.owner?.email} />
+                                <InfoRow icon="globe-outline" label="Website" value={company.website} />
                                 <InfoRow icon="location-outline" label="Địa chỉ" value={company.address} />
                             </View>
 

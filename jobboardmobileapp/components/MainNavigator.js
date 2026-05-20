@@ -133,7 +133,6 @@ function CandidateTab() {
             tabBarIcon: ({ color, size }) => {
                 const icons = {
                     'Trang chủ': 'home',
-                    'Hồ sơ': 'document-text',
                     'Lịch sử': 'time-outline',
                     'Tài khoản': 'person',
                 };
@@ -144,14 +143,12 @@ function CandidateTab() {
             headerShown: false,
         })}>
             <Tab.Screen name="Trang chủ" component={HomeStack} />
-            <Tab.Screen name="Hồ sơ" component={PlaceholderScreen('Hồ sơ')} />
             <Tab.Screen name="Lịch sử" component={HistoryStack} />
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>
     );
 }
 
-// ─── Tab Admin ────────────────────────────────────────────────────────────────
 // ─── Tab Admin ────────────────────────────────────────────────────────────────
 function AdminTab() {
     return (

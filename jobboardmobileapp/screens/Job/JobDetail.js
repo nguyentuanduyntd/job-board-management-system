@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, Image, ScrollView, TouchableOpacity,
-    ActivityIndicator, Modal, TextInput, Alert, Linking
+    ActivityIndicator, Modal, TextInput, Alert, Linking,
+    KeyboardAvoidingView, Platform // Thêm KeyboardAvoidingView và Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import Apis, { authApi, endpoints } from '../../configs/Apis';
@@ -22,8 +24,8 @@ const DescriptionTab = ({ job }) => (
                 <Text style={styles.infoGridValue}>
                     {job.job_type === 'FT' ? 'Toàn thời gian'
                         : job.job_type === 'PT' ? 'Bán thời gian'
-                        : job.job_type === 'RE' ? 'Từ xa'
-                        : 'Freelance'}
+                            : job.job_type === 'RE' ? 'Từ xa'
+                                : 'Freelance'}
                 </Text>
             </View>
             <View style={styles.infoGridItem}>
@@ -110,6 +112,7 @@ const CompanyTab = ({ job }) => (
     </ScrollView>
 );
 
+// ─── Apply Modal (ĐÃ ĐƯỢC TỐI ƯU CHỐNG CHE KHUẤT BÀN PHÍM) ─────────────────────
 const ApplyModal = ({ visible, onClose, cvFile, setCvFile, coverLetter, setCoverLetter, onPickCV, onSubmit, submitting }) => (
     <Modal
         visible={visible}
@@ -117,73 +120,84 @@ const ApplyModal = ({ visible, onClose, cvFile, setCvFile, coverLetter, setCover
         animationType="slide"
         onRequestClose={onClose}
     >
-        <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-                <Text style={styles.modalTitle}>Nộp đơn ứng tuyển</Text>
+        {/* ✅ FIX BÀN PHÍM CHE KHUẤT: Bọc toàn bộ ruột Modal bằng KeyboardAvoidingView */}
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+        >
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContainer}>
+                    {/* Thêm ScrollView để nội dung modal có thể cuộn linh hoạt khi bàn phím đẩy lên */}
+                    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
+                        <Text style={styles.modalTitle}>Nộp đơn ứng tuyển</Text>
 
-                {/* ── Tải CV lên ── */}
-                <Text style={styles.modalLabel}>
-                    Tải CV lên <Text style={{ color: '#E53E3E' }}>*</Text>
-                </Text>
+                        {/* ── Tải CV lên ── */}
+                        <Text style={styles.modalLabel}>
+                            Tải CV lên <Text style={{ color: '#E53E3E' }}>*</Text>
+                        </Text>
 
-                <TouchableOpacity
-                    style={[
-                        styles.cvUploadBtn,
-                        cvFile && styles.cvUploadBtnSelected,
-                    ]}
-                    onPress={onPickCV}
-                >
-                    <Text style={styles.cvUploadIcon}><Ionicons name="attach" size={14} color="#6B7280" style={{ marginRight: 8 }}/></Text>
-                    <Text
-                        style={[
-                            styles.cvUploadText,
-                            cvFile && styles.cvUploadTextSelected,
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="middle"
-                    >
-                        {cvFile ? cvFile.name : 'Chọn file CV (PDF, DOC, DOCX · tối đa 5MB)'}
-                    </Text>
-                    {cvFile && (
                         <TouchableOpacity
-                            onPress={() => setCvFile(null)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={[
+                                styles.cvUploadBtn,
+                                cvFile && styles.cvUploadBtnSelected,
+                            ]}
+                            onPress={onPickCV}
                         >
-                            <Text style={styles.cvRemoveIcon}>✕</Text>
+                            <Text style={styles.cvUploadIcon}><Ionicons name="attach" size={14} color="#6B7280" style={{ marginRight: 8 }} /></Text>
+                            <Text
+                                style={[
+                                    styles.cvUploadText,
+                                    cvFile && styles.cvUploadTextSelected,
+                                ]}
+                                numberOfLines={1}
+                                ellipsizeMode="middle"
+                            >
+                                {cvFile ? cvFile.name : 'Chọn file CV (PDF, DOC, DOCX · tối đa 5MB)'}
+                            </Text>
+                            {cvFile && (
+                                <TouchableOpacity
+                                    onPress={() => setCvFile(null)}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
+                                    <Text style={styles.cvRemoveIcon}>✕</Text>
+                                </TouchableOpacity>
+                            )}
                         </TouchableOpacity>
-                    )}
-                </TouchableOpacity>
 
-                {/* ── Thư xin việc (tùy chọn) ── */}
-                <Text style={styles.modalLabel}>Thư xin việc (tùy chọn)</Text>
-                <TextInput
-                    style={styles.modalInput}
-                    placeholder="Viết thư xin việc của bạn..."
-                    value={coverLetter}
-                    onChangeText={setCoverLetter}
-                    multiline
-                    numberOfLines={4}
-                />
+                        {/* ── Thư xin việc (tùy chọn) ── */}
+                        <Text style={styles.modalLabel}>Thư xin việc (tùy chọn)</Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="Viết thư xin việc của bạn..."
+                            placeholderTextColor="#9CA3AF"
+                            value={coverLetter}
+                            onChangeText={setCoverLetter}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                        />
 
-                {/* ── Submit ── */}
-                <TouchableOpacity
-                    style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
-                    onPress={onSubmit}
-                    disabled={submitting}
-                >
-                    {submitting
-                        ? <ActivityIndicator color="#fff" />
-                        : <Text style={styles.submitBtnText}>Xác nhận nộp đơn</Text>
-                    }
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={onClose}
-                >
-                    <Text style={styles.cancelBtnText}>Huỷ</Text>
-                </TouchableOpacity>
+                        {/* ── Submit & Cancel Buttons ── */}
+                        <TouchableOpacity
+                            style={[styles.submitBtn, submitting && { opacity: 0.7 }, { marginTop: 16 }]}
+                            onPress={onSubmit}
+                            disabled={submitting}
+                        >
+                            {submitting
+                                ? <ActivityIndicator color="#fff" />
+                                : <Text style={styles.submitBtnText}>Xác nhận nộp đơn</Text>
+                            }
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.cancelBtn}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.cancelBtnText}>Huỷ</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     </Modal>
 );
 
@@ -198,7 +212,7 @@ export default function JobDetail({ route, navigation }) {
     const [activeTab, setActiveTab] = useState('description')
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [coverLetter, setCoverLetter] = useState('');
-    const [cvFile, setCvFile] = useState(null);         // file CV đã chọn
+    const [cvFile, setCvFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [hasApplied, setHasApplied] = useState(false);
 
@@ -218,15 +232,13 @@ export default function JobDetail({ route, navigation }) {
 
     //Kiểm tra đã ứng tuyển chưa
     const checkApplied = async () => {
-        if (!user?.token) return;
         try {
-            // Lọc theo job_id thay vì lấy toàn bộ list → tránh RuntimeError 500
-            const url = endpoints['check-applied']?.(jobId)
-                ?? `${endpoints['applications']}?job_id=${jobId}`;
-            let res = await authApi(user.token).get(url);
+            const token = await AsyncStorage.getItem('token');
+            if (!token) return; // Nếu không có token tức là chưa đăng nhập, bỏ qua không check
 
-            // Hỗ trợ 2 kiểu response:
-            // 1. { has_applied: true }   2. array / paginated list
+            const url = endpoints['check-applied']?.(jobId) ?? `${endpoints['applications']}?job_id=${jobId}`;
+            let res = await authApi(token).get(url); // Dùng token từ AsyncStorage
+
             if (typeof res.data?.has_applied === 'boolean') {
                 setHasApplied(res.data.has_applied);
             } else {
@@ -240,7 +252,6 @@ export default function JobDetail({ route, navigation }) {
             } else if (status === 403) {
                 console.warn('checkApplied: khong co quyen');
             } else {
-                // 500 / RuntimeError backend -> chi warn, khong Alert crash man hinh
                 console.warn('checkApplied loi, bo qua:', status, ex.message);
             }
         }
@@ -264,7 +275,6 @@ export default function JobDetail({ route, navigation }) {
             if (result.canceled) return;
 
             const file = result.assets[0];
-            // Giới hạn 5MB
             if (file.size && file.size > 5 * 1024 * 1024) {
                 Alert.alert('Lỗi', 'File CV không được vượt quá 5MB');
                 return;
@@ -277,11 +287,27 @@ export default function JobDetail({ route, navigation }) {
     };
 
     const handleApply = async () => {
-        if (!user?.token) {
-            Alert.alert('Thông báo', 'Vui lòng đăng nhập để ứng tuyển');
-            navigation.navigate('Login');
+        const token = await AsyncStorage.getItem('token');
+
+        // Nếu không tìm thấy token trong máy, nghĩa là thực sự chưa đăng nhập
+        if (!token || !user) {
+            Alert.alert(
+                'Thông báo',
+                'Vui lòng đăng nhập tài khoản Ứng viên để ứng tuyển',
+                [
+                    { text: 'Hủy', style: 'cancel' },
+                    {
+                        text: 'Đăng nhập',
+                        onPress: () => {
+                            // Vì màn hình Login nằm trong Tab 'Tài khoản', ta chuyển hướng user sang Tab đó để họ đăng nhập mượt mà không bị sập app
+                            navigation.navigate('Tài khoản');
+                        }
+                    }
+                ]
+            );
             return;
         }
+
         if (!cvFile) {
             Alert.alert('Thông báo', 'Vui lòng tải lên CV của bạn');
             return;
@@ -290,7 +316,6 @@ export default function JobDetail({ route, navigation }) {
         try {
             let formData = new FormData();
             formData.append('job_id', jobId);
-            // Đính kèm file CV
             formData.append('cv_file', {
                 uri: cvFile.uri,
                 name: cvFile.name,
@@ -299,9 +324,12 @@ export default function JobDetail({ route, navigation }) {
             if (coverLetter.trim()) {
                 formData.append('cover_letter', coverLetter.trim());
             }
-            await authApi(user.token).post(endpoints['applications'], formData, {
+
+            // Gửi request kèm token chuẩn từ AsyncStorage
+            await authApi(token).post(endpoints['applications'], formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+
             setHasApplied(true);
             setShowApplyModal(false);
             Alert.alert('Thành công', 'Nộp đơn ứng tuyển thành công!');
@@ -326,7 +354,7 @@ export default function JobDetail({ route, navigation }) {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView stickyHeaderIndices={[1]} showsHorizontalScrollIndicator={false}>
-                
+
                 {/*Header*/}
                 <View style={styles.header}>
                     {job.is_featured && (
@@ -347,21 +375,21 @@ export default function JobDetail({ route, navigation }) {
 
                     {/* Salary */}
                     <View style={styles.infoRow}>
-                        <Ionicons name="cash" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                        <Ionicons name="cash" size={14} color="#6B7280" style={{ marginRight: 8 }} />
                         <View>
                             <Text style={styles.infoLabel}>Mức lương: </Text>
                             <Text style={styles.infoValueBlue}>
                                 {job.salary_min && job.salary_max
-                                    ? `${(job.salary_min / 1e6).toFixed(0)}-${(job.salary_max / 1e6).toFixed(0)} triệu`
+                                    ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
                                     : 'Thỏa thuận'}
                             </Text>
                         </View>
                     </View>
-                    
+
                     {/* Deadline */}
                     {!!job.deadline && (
                         <View style={styles.infoRow}>
-                            <Ionicons name="calendar" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                            <Ionicons name="calendar" size={14} color="#6B7280" style={{ marginRight: 8 }} />
                             <View>
                                 <Text style={styles.infoLabel}>Hạn nộp: </Text>
                                 <Text style={styles.infoValue}>
@@ -370,22 +398,22 @@ export default function JobDetail({ route, navigation }) {
                             </View>
                         </View>
                     )}
-                    
+
                     {/* Location */}
                     {!!job.location && (
                         <View style={styles.infoRow}>
-                            <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                            <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 8 }} />
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.infoLabel}>Địa điểm: </Text>
                                 <Text style={styles.infoValue}>{job.location}</Text>
                             </View>
                         </View>
                     )}
-                    
+
                     {/* Category */}
                     {!!job.category?.name && (
                         <View style={styles.infoRow}>
-                            <Ionicons name="briefcase" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                            <Ionicons name="briefcase" size={14} color="#6B7280" style={{ marginRight: 8 }} />
                             <View>
                                 <Text style={styles.infoLabel}>Ngành nghề: </Text>
                                 <Text style={styles.infoValue}>{job.category.name}</Text>
@@ -415,9 +443,9 @@ export default function JobDetail({ route, navigation }) {
                     ))}
                 </View>
 
-                {/* Tab content (Đã sử dụng component bên ngoài) */}
+                {/* Tab content */}
                 {activeTab === 'description' ? <DescriptionTab job={job} /> : <CompanyTab job={job} />}
-                
+
             </ScrollView>
 
             {/* Apply button */}
@@ -433,7 +461,7 @@ export default function JobDetail({ route, navigation }) {
                 </TouchableOpacity>
             </View>
 
-            {/* Modal Nộp Đơn (Đã sử dụng component bên ngoài) */}
+            {/* Modal Nộp Đơn */}
             <ApplyModal
                 visible={showApplyModal}
                 onClose={() => setShowApplyModal(false)}
