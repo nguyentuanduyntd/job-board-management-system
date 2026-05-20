@@ -19,6 +19,7 @@ import CompanyDetail from '../screens/Companies/CompanyDetail';
 import CompaniesList from '../screens/Companies/CompaniesList'
 import HistoryApplications from '../screens/Candidate/HistoryApplications';
 import AdminUpdateStatusEmployer from '../screens/Admin/AdminUpdateStatusEmployer';
+import CompanyInfo from '../screens/Employers/CompanyInfo';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -64,6 +65,18 @@ function HistoryStack() {
                 name="JobDetail"
                 component={JobDetail}
                 options={{ headerShown: true, title: 'Chi tiết việc làm' }}
+            />
+        </Stack.Navigator>
+    );
+}
+
+function CompanyInfoStack(){
+    return (
+        <Stack.Navigator>
+            <Stack.Screen
+                name="CompanyInfo"
+                component={CompanyInfo}
+                options={{ headerShown: false }}
             />
         </Stack.Navigator>
     );
@@ -185,10 +198,11 @@ function EmployerTab() {
             screenOptions={({ route }) => ({
                 tabBarIcon: ({ color, size }) => {
                     const icons = {
-                        'Thống kê':       'stats-chart',
-                        'Bài đăng':       'checkmark-done',
-                        'Đơn ứng tuyển':  'document-text',
-                        'Tài khoản':      'person',
+                        'Thống kê': 'stats-chart',
+                        'Bài đăng': 'checkmark-done',
+                        'Đơn ứng tuyển': 'document-text',
+                        'Công ty' : 'business',
+                        'Tài khoản': 'person',
                     };
                     return <Ionicons name={icons[route.name]} size={size} color={color} />;
                 },
@@ -200,6 +214,7 @@ function EmployerTab() {
             <Tab.Screen name="Thống kê" component={EmployerStack} />
             <Tab.Screen name="Bài đăng" component={JobManagement} />
             <Tab.Screen name="Đơn ứng tuyển" component={EmployerApplications} />
+            <Tab.Screen name="Công ty" component={CompanyInfoStack}/>
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>
     );

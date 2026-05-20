@@ -106,7 +106,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
     }
 
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action == ['create','my_companies']:
             return [IsEmployer()]
         if self.action in ['update','partial_update','destroy']:
             return [IsEmployer(), IsOwnerOrReadOnly()]
@@ -115,6 +115,17 @@ class CompanyViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @action(methods=['get'], detail=False, url_path='my-companies')
+    def my_companies(self, request):
+        companies = Company.objects.filter(is_active=True, owner=request.user)
+        
+        page = self.paginate_queryset(companies)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(companies, many=True)
+        return Response(serializer.data)    
 
 # JOB
 class JobViewSet(viewsets.ModelViewSet):

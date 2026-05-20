@@ -1,12 +1,12 @@
 import axios from "axios";
 
-export const BASE_URL = 'http://192.168.1.22:8000';
+export const BASE_URL = 'http://192.168.1.129:8000';
 
 export const endpoints = {
     // Auth
     'register': '/auth/register/',
     'login' : '/auth/login/',
-    'change-password' : '/auth/change-password',
+    'change-password' : '/auth/change-password/',
     'refresh-token' : '/auth/token/refresh/',
     'revoke-token' : '/auth/revoke/',
     'profile' : '/auth/profile/',
@@ -34,6 +34,7 @@ export const endpoints = {
 
     // Companies
     'companies' : '/companies/',
+    'my-companies' : '/companies/my-companies/',
     'company-detail' : (id) => `/companies/${id}/`,
 
      // Admin — employer management
