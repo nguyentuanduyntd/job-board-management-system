@@ -9,6 +9,7 @@ import Apis, { authApi, endpoints } from '../../configs/Apis';
 import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
 import axios from "axios";
+import { Ionicons } from '@expo/vector-icons';
 
 // ====== CÁC COMPONENT CON ĐƯỢC TÁCH RA NGOÀI ======
 
@@ -132,7 +133,7 @@ const ApplyModal = ({ visible, onClose, cvFile, setCvFile, coverLetter, setCover
                     ]}
                     onPress={onPickCV}
                 >
-                    <Text style={styles.cvUploadIcon}>📎</Text>
+                    <Text style={styles.cvUploadIcon}><Ionicons name="attach" size={14} color="#6B7280" style={{ marginRight: 8 }}/></Text>
                     <Text
                         style={[
                             styles.cvUploadText,
@@ -346,7 +347,7 @@ export default function JobDetail({ route, navigation }) {
 
                     {/* Salary */}
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoIcon}></Text>
+                        <Ionicons name="cash" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
                         <View>
                             <Text style={styles.infoLabel}>Mức lương: </Text>
                             <Text style={styles.infoValueBlue}>
@@ -360,7 +361,7 @@ export default function JobDetail({ route, navigation }) {
                     {/* Deadline */}
                     {!!job.deadline && (
                         <View style={styles.infoRow}>
-                            <Text style={styles.infoIcon}></Text>
+                            <Ionicons name="calendar" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
                             <View>
                                 <Text style={styles.infoLabel}>Hạn nộp: </Text>
                                 <Text style={styles.infoValue}>
@@ -373,7 +374,7 @@ export default function JobDetail({ route, navigation }) {
                     {/* Location */}
                     {!!job.location && (
                         <View style={styles.infoRow}>
-                            <Text style={styles.infoIcon}></Text>
+                            <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.infoLabel}>Địa điểm: </Text>
                                 <Text style={styles.infoValue}>{job.location}</Text>
@@ -384,7 +385,7 @@ export default function JobDetail({ route, navigation }) {
                     {/* Category */}
                     {!!job.category?.name && (
                         <View style={styles.infoRow}>
-                            <Text style={styles.infoIcon}>🏷</Text>
+                            <Ionicons name="briefcase" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
                             <View>
                                 <Text style={styles.infoLabel}>Ngành nghề: </Text>
                                 <Text style={styles.infoValue}>{job.category.name}</Text>
@@ -427,7 +428,7 @@ export default function JobDetail({ route, navigation }) {
                     disabled={hasApplied}
                 >
                     <Text style={styles.applyBtnText}>
-                        {hasApplied ? '✓ Đã ứng tuyển' : 'Nộp đơn ứng tuyển'}
+                        {hasApplied ? ' Đã ứng tuyển' : 'Nộp đơn ứng tuyển'}
                     </Text>
                 </TouchableOpacity>
             </View>

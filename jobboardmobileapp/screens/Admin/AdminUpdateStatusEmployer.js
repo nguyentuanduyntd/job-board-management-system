@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, endpoints } from '../../configs/Apis';
 import { Colors as C, approvalStyles as s } from './Styles';
+import { Ionicons } from '@expo/vector-icons';
 
 // ─── Employer Detail Modal (Đồng bộ với JobDetailModal) ─────────────────────────
 const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, actionLoading }) => {
@@ -37,7 +38,10 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                             <Text style={s.detailTitle} numberOfLines={2}>
                                 {companyInfo.name || 'Chưa thiết lập tên công ty'}
                             </Text>
-                            <Text style={s.detailCompany}>👤 Đại diện: {userInfo.username || '—'}</Text>
+                            <Text style={s.detailCompany}>
+                                <Ionicons name="people" size={16} color="#3d3c3a" style={{ marginRight: 6 }} />
+                                Đại diện: {userInfo.username || '—'}
+                            </Text>
                         </View>
                         <TouchableOpacity style={s.closeBtn} onPress={onClose}>
                             <Text style={s.closeBtnText}>✕</Text>
@@ -47,11 +51,31 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                     <ScrollView style={s.detailScroll} showsVerticalScrollIndicator={false}>
                         {/* Info grid */}
                         <View style={s.infoGrid}>
-                            <InfoRow label="✉️ Email liên hệ" value={userInfo.email} />
-                            <InfoRow label="📞 Số điện thoại" value={userInfo.phone} />
-                            <InfoRow label="💼 Chức vụ đại diện" value={employer.position} />
-                            <InfoRow label="🌐 Website" value={companyInfo.website} />
-                            <InfoRow label="📍 Trụ sở công ty" value={companyInfo.address} />
+                            <InfoRow 
+                                icon={<Ionicons name="mail" size={14} color="#6B7280" />} 
+                                label="Email liên hệ" 
+                                value={userInfo.email} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="call" size={14} color="#6B7280" />} 
+                                label="Số điện thoại" 
+                                value={userInfo.phone} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="briefcase" size={14} color="#6B7280" />} 
+                                label="Chức vụ đại diện" 
+                                value={employer.position} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="globe" size={14} color="#6B7280" />} 
+                                label="Website" 
+                                value={companyInfo.website} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="location" size={14} color="#6B7280" />} 
+                                label="Trụ sở công ty" 
+                                value={companyInfo.address} 
+                            />
                         </View>
 
                         {/* Bio / Giới thiệu */}
@@ -81,7 +105,7 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                                 onPress={() => onReject(employer)}
                                 disabled={actionLoading}
                             >
-                                <Text style={s.detailRejectBtnText}>✕ Từ chối</Text>
+                                <Text style={s.detailRejectBtnText}> Từ chối</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[s.detailApproveBtn, actionLoading && { opacity: 0.6 }]}
@@ -90,7 +114,7 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                             >
                                 {actionLoading
                                     ? <ActivityIndicator size="small" color="#fff" />
-                                    : <Text style={s.detailApproveBtnText}>✓ Duyệt tài khoản</Text>
+                                    : <Text style={s.detailApproveBtnText}> Duyệt tài khoản</Text>
                                 }
                             </TouchableOpacity>
                         </View>
@@ -137,7 +161,7 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
                     <Text style={s.cardTitle} numberOfLines={1}>
                         {companyInfo.name || 'Chưa cập nhật tên cty'}
                     </Text>
-                    <Text style={s.cardCompany} numberOfLines={1}>👤 @{userInfo.username || '—'}</Text>
+                    <Text style={s.cardCompany} numberOfLines={1}><Ionicons name="people" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> @{userInfo.username || '—'}</Text>
                 </View>
                 <View style={[s.statusBadge, { backgroundColor: st.bg, borderColor: st.bdr }]}>
                     <Text style={[s.statusBadgeText, { color: st.color }]}>{st.label}</Text>
@@ -146,10 +170,22 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
 
             {/* Meta */}
             <View style={s.cardMeta}>
-                {userInfo.email ? <Text style={s.metaTag}>✉️ {userInfo.email}</Text> : null}
-                {employer.position ? <Text style={s.metaTag}>💼 {employer.position}</Text> : null}
+                {userInfo.email ? (
+                    <Text style={s.metaTag}>
+                        <Ionicons name="mail" size={12} color="#6B7280" /> {userInfo.email}
+                    </Text>
+                ) : null}
+                
+                {employer.position ? (
+                    <Text style={s.metaTag}>
+                        <Ionicons name="briefcase" size={12} color="#6B7280" /> {employer.position}
+                    </Text>
+                ) : null}
+                
                 {companyInfo.location || companyInfo.address ? (
-                    <Text style={s.metaTag} numberOfLines={1}>📍 {companyInfo.location || companyInfo.address}</Text>
+                    <Text style={s.metaTag} numberOfLines={1}>
+                        <Ionicons name="location" size={12} color="#6B7280" /> {companyInfo.location || companyInfo.address}
+                    </Text>
                 ) : null}
             </View>
 
@@ -287,12 +323,16 @@ export default function AdminUpdateStatusEmployer() {
     // ── Empty State Giao diện trống ──────────────────────────────────────────────
     const EmptyState = () => (
         <View style={s.empty}>
-            <Text style={s.emptyIcon}>{activeTab === 'pending' ? '🎉' : '📭'}</Text>
+            {activeTab === 'pending' ? (
+                <Ionicons name="celebrate" size={48} color="#FFD700" /> 
+            ) : (
+                <Ionicons name="folder-open-outline" size={48} color="#A9A9A9" />
+            )}
             <Text style={s.emptyTitle}>
-                {activeTab === 'pending' ? 'Không có tài khoản chờ duyệt' : 'Danh sách trống'}
+                {activeTab === 'pending' ? 'Tất cả hồ sơ đăng ký mới đã được phê duyệt. 🎉' : 'Danh sách trống'}
             </Text>
             <Text style={s.emptyDesc}>
-                {activeTab === 'pending' ? 'Tất cả hồ sơ đăng ký mới đã được phê duyệt.' : 'Không tìm thấy dữ liệu.'}
+                {activeTab === 'pending' ? 'Hồ sơ đã được xử lý thành công.' : 'Hệ thống chưa ghi nhận tài khoản mới.'}
             </Text>
         </View>
     );

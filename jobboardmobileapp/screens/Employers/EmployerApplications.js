@@ -7,33 +7,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { authApi, endpoints } from '../../configs/Apis';
-import { Colors } from './Styles';
-import styles from './Styles';
 
-export default function EmployerApplication(){
-    // States cho Danh sách
+// Import styles và Colors
+import styles, { Colors } from './Styles'; 
+
+// CẤU HÌNH GIAO DIỆN CÁC GÓI VIP ƯU TIÊN
+const VIP_CONFIG = {
+    1: { border: '#F59E0B', bg: '#FFFBEB', text: '#D97706', icon: '🥉', label: 'VIP 1' },
+    2: { border: '#0EA5E9', bg: '#F0F9FF', text: '#0369A1', icon: '🥈', label: 'VIP 2' },
+    3: { border: '#A855F7', bg: '#FAF5FF', text: '#7E22CE', icon: '🥇', label: 'VIP 3' },
+};
+
+export default function EmployerApplication() {
     const [applications, setApplications] = useState([]);
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('');
     
-    // States cho Phân trang
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [page, setPage] = useState(1);
     const [hasNext, setHasNext] = useState(true);
 
-    // States cho Modal Đánh giá
     const [selectedApp, setSelectedApp] = useState(null);
     const [note, setNote] = useState('');
     const [processing, setProcessing] = useState(false);
 
-    // Load Danh mục
     useEffect(() => {
         const fetchCategories = async () => {
             try {
                 const res = await authApi().get(endpoints['categories']);
-                setCategories(res.data.results || res.data); // Tùy thuộc backend của bạn có phân trang categories không
+                setCategories(res.data.results || res.data);
             } catch (ex) {
                 console.error("Lỗi load danh mục:", ex);
             }
@@ -41,7 +45,6 @@ export default function EmployerApplication(){
         fetchCategories();
     }, []);
 
-    // Load Applications
     const loadApplications = useCallback(async (pageNumber = 1, category = selectedCategory, isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
         else if (pageNumber === 1) setLoading(true);
@@ -49,13 +52,10 @@ export default function EmployerApplication(){
 
         try {
             const token = await AsyncStorage.getItem("token");
-            // Build URL với query params
             let url = `${endpoints['applications']}?page=${pageNumber}`;
             if (category) url += `&job__category=${category}`;
 
             const res = await authApi(token).get(url);
-            
-            // Xử lý dữ liệu trả về từ DRF Paginator
             const newData = res.data.results || [];
             
             if (pageNumber === 1) {
@@ -85,14 +85,12 @@ export default function EmployerApplication(){
         }
     };
 
-    // Đánh giá - Cập nhật Status & Note
     const handleEvaluate = async (newStatus) => {
         if (!selectedApp) return;
         setProcessing(true);
         try {
             const token = await AsyncStorage.getItem("token");
 
-            // Cập nhật note nếu có thay đổi (kể cả rỗng)
             if (note !== (selectedApp.employer_note || '')) {
                 await authApi(token).patch(
                     endpoints['application-add-note'](selectedApp.id),
@@ -100,7 +98,6 @@ export default function EmployerApplication(){
                 );
             }
 
-            // Cập nhật status
             await authApi(token).patch(
                 endpoints['application-update-status'](selectedApp.id),
                 { status: newStatus }
@@ -127,26 +124,44 @@ export default function EmployerApplication(){
 
     const renderAppItem = ({ item }) => {
         const statusStyle = getStatusStyle(item.status);
+        const isVip = item.is_priority_active;
+        const vipLevel = item.priority_level || 1;
+        const vipStyle = VIP_CONFIG[vipLevel] || VIP_CONFIG[1];
+
         return (
             <TouchableOpacity 
-                style={{ backgroundColor: Colors.surface, padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: item.is_priority_active ? 2 : 1, borderColor: item.is_priority_active ? Colors.yellow : Colors.border }}
+                style={[
+                    styles.card,
+                    isVip && styles.cardFeatured,
+                    isVip && { borderColor: vipStyle.border, backgroundColor: vipStyle.bg, shadowColor: vipStyle.border }
+                ]}
                 onPress={() => {
                     setSelectedApp(item);
                     setNote(item.employer_note || '');
                 }}
             >
-                {item.is_priority_active && <Text style={{ color: Colors.yellow, fontWeight: 'bold', marginBottom: 8 }}>⭐ Ứng viên ưu tiên (VIP)</Text>}
+                {isVip && (
+                    <View style={styles.vipRow}>
+                        <View style={[styles.vipBadge, { backgroundColor: vipStyle.border }]}>
+                            <Text style={styles.vipBadgeText}>
+                                {vipStyle.icon} {vipStyle.label}
+                            </Text>
+                        </View>
+                        <Text style={[styles.vipLabel, { color: vipStyle.text }]}>Hồ sơ nổi bật</Text>
+                    </View>
+                )}
                 
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.text }}>{item.candidate.username}</Text>
-                <Text style={{ color: Colors.accent, marginVertical: 4 }}>Ứng tuyển: {item.job.title}</Text>
-                <Text style={{ color: Colors.textSub, fontSize: 13 }}>Nộp lúc: {new Date(item.created_at).toLocaleDateString('vi-VN')}</Text>
+                <Text style={styles.candidateName}>{item.candidate.username}</Text>
+                <Text style={styles.jobTitleText}>Ứng tuyển: {item.job.title}</Text>
+                <Text style={styles.dateText}>Nộp lúc: {new Date(item.created_at).toLocaleDateString('vi-VN')}</Text>
                 
-                <View style={{ alignSelf: 'flex-start', backgroundColor: statusStyle.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginTop: 8 }}>
-                    <Text style={{ color: statusStyle.color, fontWeight: 'bold', fontSize: 12 }}>{item.status}</Text>
+                <View style={[styles.statusWrap, { backgroundColor: statusStyle.bg }]}>
+                    <Text style={[styles.statusText, { color: statusStyle.color }]}>{item.status}</Text>
                 </View>
             </TouchableOpacity>
         );
     };
+
     return (
         <SafeAreaView style={styles.root}>
             <View style={styles.header}>
@@ -156,52 +171,58 @@ export default function EmployerApplication(){
                 </View>
             </View>
 
-            {/* Filter */}
-            <View style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: Colors.surface, zIndex: 1 }}>
-                <View style={{ borderWidth: 1, borderColor: Colors.border, borderRadius: 8 }}>
+            {/* Filter Panel */}
+            <View style={styles.filterContainer}>
+                <View style={styles.pickerWrapper}>
                     <Picker
                         selectedValue={selectedCategory}
                         onValueChange={(val) => setSelectedCategory(val)}
-                        style={{ height: 50 }}
+                        style={styles.picker}
                     >
-                        <Picker.Item label="Tất cả danh mục công việc" value="" />
+                        <Picker.Item label="Tất cả danh mục công việc" value="" color={Colors.textSub} />
                         {categories.map(cat => (
-                            <Picker.Item key={cat.id} label={cat.name} value={String(cat.id)} />
+                            <Picker.Item key={cat.id} label={cat.name} value={String(cat.id)} color={Colors.text} />
                         ))}
                     </Picker>
                 </View>
             </View>
 
-            {/* List */}
+            {/* Application List */}
             {loading ? (
-                <View style={styles.centered}><ActivityIndicator size="large" color={Colors.accent} /></View>
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={Colors.accent} />
+                </View>
             ) : (
                 <FlatList
-                    contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+                    contentContainerStyle={styles.listContent}
                     data={applications}
                     keyExtractor={item => item.id.toString()}
                     renderItem={renderAppItem}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadApplications(1, selectedCategory, true)} />}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={() => loadApplications(1, selectedCategory, true)} />
+                    }
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.5}
-                    ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={Colors.accent} style={{ marginVertical: 20 }} /> : null}
-                    ListEmptyComponent={<Text style={{ textAlign: 'center', color: Colors.textMuted, marginTop: 40 }}>Không tìm thấy đơn ứng tuyển nào.</Text>}
+                    ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={Colors.accent} style={styles.loadingFooter} /> : null}
+                    ListEmptyComponent={<Text style={styles.emptyText}>Không tìm thấy đơn ứng tuyển nào.</Text>}
                 />
             )}
 
             {/* Modal Đánh Giá */}
             <Modal visible={!!selectedApp} animationType="slide" transparent={true}>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-                    <View style={{ backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' }}>
-                        <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 15, color: Colors.text }}>Đánh giá ứng viên</Text>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Đánh giá ứng viên</Text>
                         
                         {selectedApp && (
                             <>
-                                <Text style={{ fontWeight: '600', marginBottom: 5 }}>Ứng viên: <Text style={{ color: Colors.accent }}>{selectedApp.candidate.username}</Text></Text>
-                                <Text style={{ fontWeight: '600', marginBottom: 15 }}>Công việc: {selectedApp.job.title}</Text>
+                                <Text style={styles.modalRow}>
+                                    Ứng viên: <Text style={styles.modalValue}>{selectedApp.candidate.username}</Text>
+                                </Text>
+                                <Text style={styles.modalJob}>Công việc: {selectedApp.job.title}</Text>
                                 
                                 <TouchableOpacity 
-                                    style={{ backgroundColor: '#EFF6FF', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 20 }}
+                                    style={styles.cvBtn}
                                     onPress={() =>{
                                         const url = selectedApp.cv_file_url || selectedApp.candidate.profile?.cv_file_url;
                                         if (!url) {
@@ -211,33 +232,49 @@ export default function EmployerApplication(){
                                         Linking.openURL(url);
                                     }}
                                 >
-                                    <Text style={{ color: Colors.accent, fontWeight: 'bold' }}>📥 Mở CV đính kèm</Text>
+                                    <Text style={styles.cvBtnText}>📥 Mở CV đính kèm</Text>
                                 </TouchableOpacity>
 
-                                <Text style={{ fontWeight: 'bold', marginBottom: 8, color: Colors.textSub }}>Ghi chú nội bộ (Chỉ bạn thấy):</Text>
+                                <Text style={styles.noteLabel}>Ghi chú nội bộ (Chỉ bạn thấy):</Text>
                                 <TextInput
-                                    style={{ borderWidth: 1, borderColor: Colors.border, borderRadius: 8, padding: 12, minHeight: 80, backgroundColor: Colors.bg, marginBottom: 20 }}
+                                    style={styles.noteInput}
                                     placeholder="Ghi chú về ứng viên..."
+                                    placeholderTextColor={Colors.textMuted}
                                     multiline
                                     value={note}
                                     onChangeText={setNote}
                                 />
 
-                                <Text style={{ fontWeight: 'bold', marginBottom: 10, color: Colors.textSub }}>Quyết định trạng thái:</Text>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-                                    <TouchableOpacity style={{ flex: 1, backgroundColor: Colors.yellow, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={() => handleEvaluate('REVIEWING')} disabled={processing}>
-                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>XEM XÉT</Text>
+                                <Text style={styles.decisionLabel}>Quyết định trạng thái:</Text>
+                                <View style={styles.decisionRow}>
+                                    <TouchableOpacity 
+                                        style={[styles.btnAction, { backgroundColor: Colors.yellow }]} 
+                                        onPress={() => handleEvaluate('REVIEWING')} disabled={processing}
+                                    >
+                                        <Text style={styles.btnActionText}>XEM XÉT</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={{ flex: 1, backgroundColor: Colors.green, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={() => handleEvaluate('ACCEPTED')} disabled={processing}>
-                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>DUYỆT</Text>
+                                    
+                                    <TouchableOpacity 
+                                        style={[styles.btnAction, { backgroundColor: Colors.green }]} 
+                                        onPress={() => handleEvaluate('ACCEPTED')} disabled={processing}
+                                    >
+                                        <Text style={styles.btnActionText}>DUYỆT</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={{ flex: 1, backgroundColor: Colors.red, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={() => handleEvaluate('REJECTED')} disabled={processing}>
-                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>TỪ CHỐI</Text>
+                                    
+                                    <TouchableOpacity 
+                                        style={[styles.btnAction, { backgroundColor: Colors.red }]} 
+                                        onPress={() => handleEvaluate('REJECTED')} disabled={processing}
+                                    >
+                                        <Text style={styles.btnActionText}>TỪ CHỐI</Text>
                                     </TouchableOpacity>
                                 </View>
 
-                                <TouchableOpacity style={{ marginTop: 20, padding: 15, alignItems: 'center' }} onPress={() => setSelectedApp(null)} disabled={processing}>
-                                    <Text style={{ color: Colors.textMuted, fontWeight: 'bold' }}>ĐÓNG</Text>
+                                <TouchableOpacity 
+                                    style={styles.btnClose} 
+                                    onPress={() => setSelectedApp(null)} 
+                                    disabled={processing}
+                                >
+                                    <Text style={styles.btnCloseText}>ĐÓNG</Text>
                                 </TouchableOpacity>
                             </>
                         )}

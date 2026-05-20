@@ -2,6 +2,7 @@ from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from django.utils import timezone
 from rest_framework import generics, viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.parsers import BaseParser
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -10,12 +11,15 @@ from django.contrib.auth import get_user_model
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django.db.models import Count, Sum, Q, Avg
 import requests
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 from oauthlib.common import generate_token
 from oauth2_provider.models import Application as OAuth2Application
 from oauth2_provider.models import AccessToken
-
+import stripe
+from django.conf import settings
 from datetime import timedelta
 from .models import (
     Company, JobCategory, Skill, Job, Package,
@@ -32,8 +36,16 @@ from .serializers import (
     JobComparisonSerializer, PaymentSerializer, JobCompareItemSerializer
 )
 from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly, IsVerifiedEmployer
+from rest_framework import viewsets, status, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import EmployerProfile
+from .serializers import EmployerProfileAdminSerializer, EmployerVerifySerializer
+from .permissions import IsAdmin  # Hoặc permissions.IsAdminUser tùy cấu hình của bạn
 
 User = get_user_model()
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # custom throttle class cho login và register
 class LoginRateThrottle(AnonRateThrottle):
@@ -113,8 +125,8 @@ class JobViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['job_type', 'category', 'company']
     search_fields = ['title', 'description', 'location']
-    ordering_fields = ['created_at', 'salary_min', 'deadline']
-    ordering = ['-created_at']
+    ordering_fields = ['created_at', 'salary_min', 'deadline','featured_score']
+    ordering = ['-featured_score','-created_at']
     pagination_class = MyPaginator
 
     def get_serializer_class(self):
@@ -139,8 +151,7 @@ class JobViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.save()
 
-    @action(detail=True, methods=['get'], permission_classes=[IsEmployer],
-            url_path='applications')
+    @action(detail=True, methods=['get'], permission_classes=[IsEmployer], url_path='applications')
     def applications(self, request, pk=None):
         """GET /api/jobs/{id}/applications/ - Employer xem danh sách ứng viên"""
         job = self.get_object()
@@ -395,13 +406,6 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
         return profile
 
 
-from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from .models import EmployerProfile
-from .serializers import EmployerProfileAdminSerializer, EmployerVerifySerializer
-from .permissions import IsAdmin  # Hoặc permissions.IsAdminUser tùy cấu hình của bạn
-
 
 class AdminEmployerViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
@@ -514,7 +518,14 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['package_type']
 
+class StripeWebhookParser(BaseParser):
+    media_type = 'application/json'
+
+    def parse(self, stream, media_type=None, parser_context=None):
+        return stream.read()
+
 # Payment
+@method_decorator(csrf_exempt, name='dispatch')
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
     http_method_names = ['get', 'post']
@@ -539,6 +550,80 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 payment_type='priority_application'
             ).select_related('application')
         return Payment.objects.none()
+    
+    @action(detail=False, methods=['post'], url_path='create-payment-intent')
+    def create_payment_intent(self, request):
+        serializer = PaymentSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+        package = validated['package']
+        amount_vnd = int(package.price)
+
+        # Tạo hoặc lấy Stripe Customer theo user
+        user = request.user
+        if not user.stripe_customer_id:  # thêm field này vào User model
+            customer = stripe.Customer.create(email=user.email, name=user.username)
+            user.stripe_customer_id = customer.id
+            user.save(update_fields=['stripe_customer_id'])
+
+        # Ephemeral key cho Payment Sheet
+        ephemeral_key = stripe.EphemeralKey.create(
+            customer=user.stripe_customer_id,
+            stripe_version='2024-06-20',
+        )
+
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount_vnd,           # VND là zero-decimal, không nhân 100
+            currency='vnd',
+            customer=user.stripe_customer_id,
+            metadata={
+                'payment_type': validated.get('payment_type'),
+                'package_id':   str(package.id),
+                'job_id':       str(validated['job'].id) if validated.get('job') else '',
+                'user_id':      str(user.id),
+            }
+        )
+        payment = serializer.save(
+            user=user,
+            transaction_id=payment_intent.id,
+            status='pending',
+        )
+        return Response({
+            'payment_intent_client_secret': payment_intent.client_secret,
+            'ephemeral_key':                ephemeral_key.secret,
+            'customer_id':                  user.stripe_customer_id,
+            'payment_id':                   payment.id,
+        })
+    
+    @action(detail=False, methods=['post'], url_path='stripe-webhook',
+            permission_classes=[permissions.AllowAny],
+            parser_classes=[StripeWebhookParser]) 
+    def stripe_webhook(self, request):
+        payload = request.data 
+        sig_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        except (ValueError, stripe.error.SignatureVerificationError):
+            return Response(status=400)
+
+        if event['type'] == 'payment_intent.succeeded':
+            intent = event['data']['object']
+            try:
+                payment = Payment.objects.get(transaction_id=intent['id'])
+                if payment.status != 'completed':
+                    payment.status = 'completed'
+                    payment.save() 
+            except Payment.DoesNotExist:
+                pass
+
+        elif event['type'] == 'payment_intent.payment_failed':
+            intent = event['data']['object']
+            Payment.objects.filter(transaction_id=intent['id']).update(status='failed')
+
+        return Response({'status': 'ok'})
 
 
 # Thống kê trang admin

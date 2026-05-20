@@ -9,8 +9,8 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = "wCYXI0rSRejtewRGuBzQh79JiqSm3p07lMWqCbAv";
-const CLIENT_SECRET = "rYg3Dzx7HZatdIjVrVimxkGYKrFIGgZQrFQH7KHaKMVYtA9lEyZZguYR38Flg68LWUxTkIOoZqOEdH7uhaAAN9jXbzDnPAXUsrFHsFwiO1yo8goXwk6Bco5trBrqqujV";
+const CLIENT_ID     = "gjsYTHm5CxV8q6hZPh9xmRw4LxuzvafNp2mLBDTO";
+const CLIENT_SECRET = "KsABPiesYMIHB0sUsjiWyCvBVtjLVZaMkjqpq136lQXqjJF4ev2KxzeWSqRYL9bIeGvwJwr7SGiKs6XdEHjpbaIlGTdVrBxeabVkJUZPKJNTaYZ9u3EktNR41WbgdKCl";
 
 const Login = () => {
     const [user, setUser]         = useState({ username: "", password: "" });

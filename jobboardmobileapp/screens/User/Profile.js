@@ -8,6 +8,7 @@ import { useMyUser, useMyDispatch } from '../../configs/Contexts';
 import { useNavigation } from '@react-navigation/native';
 import { authApi, endpoints } from '../../configs/Apis';
 import styles from './Styles';
+import { Ionicons } from '@expo/vector-icons';
 
 // ─── Modal Chỉnh sửa hồ sơ ───────────────────────────────────────────────────
 const EditProfileModal = ({ visible, onClose, user, dispatch }) => {
@@ -81,7 +82,9 @@ const EditProfileModal = ({ visible, onClose, user, dispatch }) => {
                                 style={{ backgroundColor: '#ccc' }}
                             />
                             <View style={styles.avatarEditBadge}>
-                                <Text style={styles.avatarEditText}>✏️</Text>
+                                <Text style={styles.avatarEditText}>
+                                    <Ionicons name="pencil" size={16} color="#6B7280" style={{ marginRight: 6 }} />
+                                </Text>
                             </View>
                         </TouchableOpacity>
                         <Text style={{ color: '#3B5BDB', marginTop: 8, fontSize: 13 }}>Nhấn để đổi ảnh</Text>

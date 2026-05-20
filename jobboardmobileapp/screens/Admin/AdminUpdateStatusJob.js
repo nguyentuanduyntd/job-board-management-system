@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, endpoints } from '../../configs/Apis';
 import { Colors as C, approvalStyles as s } from './Styles';
+import { Ionicons } from '@expo/vector-icons';
 
 // ─── Rejection Modal ──────────────────────────────────────────────────────────
 const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
@@ -103,12 +104,36 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                     <ScrollView style={s.detailScroll} showsVerticalScrollIndicator={false}>
                         {/* Info grid */}
                         <View style={s.infoGrid}>
-                            <InfoRow label="📍 Địa điểm" value={job.location} />
-                            <InfoRow label="💰 Lương" value={formatSalary(job.salary_min, job.salary_max)} />
-                            <InfoRow label="📅 Hạn nộp" value={job.deadline} />
-                            <InfoRow label="👥 Số lượng" value={job.quantity ? `${job.quantity} người` : null} />
-                            <InfoRow label="⏱ Loại hình" value={{ FT: 'Full-time', PT: 'Part-time', RE: 'Remote', FR: 'Freelance' }[job.job_type]} />
-                            <InfoRow label="🏢 Địa chỉ cty" value={job.company?.address} />
+                            <InfoRow 
+                                icon={<Ionicons name="location" size={14} color="#6B7280" />} 
+                                label="Địa điểm" 
+                                value={job.location} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="cash" size={14} color="#6B7280" />} 
+                                label="Lương" 
+                                value={formatSalary(job.salary_min, job.salary_max)} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="calendar" size={14} color="#6B7280" />} 
+                                label="Hạn nộp" 
+                                value={job.deadline} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="people" size={14} color="#6B7280" />} 
+                                label="Số lượng" 
+                                value={job.quantity ? `${job.quantity} người` : null} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="time" size={14} color="#6B7280" />} 
+                                label="Loại hình" 
+                                value={{ FT: 'Full-time', PT: 'Part-time', RE: 'Remote', FR: 'Freelance' }[job.job_type]} 
+                            />
+                            <InfoRow 
+                                icon={<Ionicons name="business" size={14} color="#6B7280" />} 
+                                label="Địa chỉ cty" 
+                                value={job.company?.address} 
+                            />
                         </View>
  
                         {/* Skills */}
@@ -160,7 +185,7 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                                 onPress={() => onReject(job)}
                                 disabled={actionLoading}
                             >
-                                <Text style={s.detailRejectBtnText}>✕ Từ chối</Text>
+                                <Text style={s.detailRejectBtnText}> Từ chối</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[s.detailApproveBtn, actionLoading && { opacity: 0.6 }]}
@@ -169,7 +194,7 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             >
                                 {actionLoading
                                     ? <ActivityIndicator size="small" color="#fff" />
-                                    : <Text style={s.detailApproveBtnText}>✓ Duyệt bài</Text>
+                                    : <Text style={s.detailApproveBtnText}> Duyệt bài</Text>
                                 }
                             </TouchableOpacity>
                         </View>
@@ -221,13 +246,13 @@ const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
  
             {/* Meta */}
             <View style={s.cardMeta}>
-                {job.location ? <Text style={s.metaTag}>📍 {job.location}</Text> : null}
+                {job.location ? <Text style={s.metaTag}><Ionicons name="location" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> {job.location}</Text> : null}
                 {job.job_type ? (
                     <Text style={s.metaTag}>
                         {{ FT: 'Full-time', PT: 'Part-time', RE: 'Remote', FR: 'Freelance' }[job.job_type]}
                     </Text>
                 ) : null}
-                {job.deadline ? <Text style={s.metaTag}>📅 {job.deadline}</Text> : null}
+                {job.deadline ? <Text style={s.metaTag}><Ionicons name="calendar" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> {job.deadline}</Text> : null}
             </View>
  
             {/* Footer */}
@@ -364,7 +389,12 @@ export default function AdminJobApproval() {
     const EmptyState = () => (
         <View style={s.empty}>
             <Text style={s.emptyIcon}>
-                {activeTab === 'pending' ? '🎉' : activeTab === 'approved' ? '✅' : '📭'}
+                {activeTab === 'pending' 
+                    ? <Ionicons name="sparkles" size={48} color="#F59E0B" /> 
+                    : activeTab === 'approved' 
+                    ? <Ionicons name="checkmark-circle-outline" size={48} color="#10B981" /> 
+                    : <Ionicons name="folder-open-outline" size={48} color="#9CA3AF" />
+                }
             </Text>
             <Text style={s.emptyTitle}>
                 {activeTab === 'pending' ? 'Không có bài chờ duyệt' :

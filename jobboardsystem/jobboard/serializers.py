@@ -150,8 +150,9 @@ class JobDetailSerializer(serializers.ModelSerializer):
             'skills', 'skill_ids',
             'is_active', 'created_at',
             'status', 'rejection_reason',
+            'is_featured','featured_priority',
         ]
-        read_only_fields = ['created_at','status', 'rejection_reason']
+        read_only_fields = ['created_at','status', 'rejection_reason','is_featured','featured_priority']
 
     #Override update để xử lý ManytoMany cho skills, dùng set
     def update(self, instance, validated_data):

@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles';;
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+
 export default function EmployerDashboardScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -174,25 +176,31 @@ export default function EmployerDashboardScreen({ navigation }) {
             value={ov.total_jobs_posted || 0} 
             color={Colors.accent} 
             iconBg="#EFF6FF" 
-            icon="📋" 
+            icon={<Ionicons name="briefcase" size={20} color={Colors.accent} />}
           />
           <OverviewCard 
             label="Đơn ứng tuyển" 
             value={ov.total_applications || 0} 
             color={Colors.green} 
             iconBg="#F0FDF4" 
-            icon="📨" 
+            icon={<Ionicons name="mail" size={20} color={Colors.green} />} 
           />
         </View>
 
         {/* Meta Row (Rating & Tỷ lệ) */}
         <View style={styles.metaRow}>
           <View style={styles.metaCard}>
-            <Text style={styles.metaCardTitle}>⭐ ĐÁNH GIÁ TB</Text>
+            <Text style={styles.metaCardTitle}>
+              <Ionicons name="star" size={12} color="#F59E0B" />
+              ĐÁNH GIÁ TB
+            </Text>
             <RatingStars rating={ov.avg_candidate_rating || 0} />
           </View>
           <View style={styles.metaCard}>
-            <Text style={styles.metaCardTitle}>📊 ĐƠN / TIN</Text>
+            <Text style={styles.metaCardTitle}>
+              <Ionicons name="bar-chart" size={12} color={Colors.purple} />
+              ĐƠN / TIN
+            </Text>
             <Text style={[styles.metaBigNum, { color: Colors.purple }]}>{convRate}</Text>
           </View>
         </View>

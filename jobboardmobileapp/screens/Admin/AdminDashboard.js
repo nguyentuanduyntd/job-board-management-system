@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import styles, {Colors} from './Styles';
+import { Ionicons } from '@expo/vector-icons';
+
 export default function AdminDashboardScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -144,10 +146,10 @@ export default function AdminDashboardScreen({ navigation }) {
         }
       >
         <View style={styles.overviewGrid}>
-          <OverviewCard label="Việc làm" value={ov.total_jobs || 0} color="#3B5BDB" iconBg="#EFF6FF" icon="💼" />
-          <OverviewCard label="Ứng viên" value={ov.total_candidates || 0} color="#2F9E44" iconBg="#F0FDF4" icon="👤" />
-          <OverviewCard label="Công ty" value={ov.total_employers || 0} color="#F59F00" iconBg="#FFFBEB" icon="🏢" />
-          <OverviewCard label="Doanh thu" value={formatCurrency(ov.total_revenue || 0)} color="#7C3AED" iconBg="#F5F3FF" icon="💰" />
+          <OverviewCard label="Việc làm" value={ov.total_jobs || 0} color="#3B5BDB" iconBg="#EFF6FF" icon={<Ionicons name="briefcase" size={20} color="#3B5BDB" />} />
+          <OverviewCard label="Ứng viên" value={ov.total_candidates || 0} color="#2F9E44" iconBg="#F0FDF4" icon={<Ionicons name="people" size={20} color="#2F9E44" />} />
+          <OverviewCard label="Công ty" value={ov.total_employers || 0} color="#F59F00" iconBg="#FFFBEB" icon={<Ionicons name="business" size={20} color="#F59F00" />} />
+          <OverviewCard label="Doanh thu" value={formatCurrency(ov.total_revenue || 0)} color="#7C3AED" iconBg="#F5F3FF" icon={<Ionicons name="cash" size={20} color="#7C3AED" />} />
         </View>
 
         <View style={styles.section}>

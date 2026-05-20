@@ -121,22 +121,37 @@ export default StyleSheet.create({
         marginBottom: 12,
         padding: 12,
         elevation: 2,
+        borderWidth: 1.5,
+        borderColor: '#eee',
+        position: 'relative',
+        overflow: 'hidden' // Giúp ribbon ko bị lồi ra ngoài góc bo tròn
     },
-    featuredCard: {
-        borderLeftWidth: 4,
-        borderLeftColor: '#F59E0B',
+    // STYLE KHI CÓ TIN NỔI BẬT
+    cardFeatured: {
+        backgroundColor: '#F0FDF4', 
+        borderColor: '#22C55E',     
     },
-    featuredBadge: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#FEF3C7',
-        borderRadius: 8,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        marginBottom: 8,
+    // DẢI BĂNG GÓC TRÊN CÙNG
+    featuredRibbon: { 
+        position: 'absolute', 
+        top: 0, 
+        right: 0, 
+        backgroundColor: '#F59E0B', 
+        paddingHorizontal: 12, 
+        paddingVertical: 5, 
+        borderBottomLeftRadius: 12, 
+        borderTopRightRadius: 10, 
+        zIndex: 99,
     },
-    featuredBadgeText: { fontSize: 12, color: '#D97706' },
+    featuredRibbonText: { 
+        color: '#FFFFFF', 
+        fontSize: 10, 
+        fontWeight: '900', 
+        textTransform: 'uppercase' 
+    },
     cardHeader: { 
-        flexDirection: 'row' 
+        flexDirection: 'row',
+        marginTop: 6 // Cân chỉnh lại sau khi có Ribbon
     },
     logo: { 
         width: 60, 
@@ -151,7 +166,8 @@ export default StyleSheet.create({
     jobTitle: { 
         fontSize: 15, 
         fontWeight: '600', 
-        color: '#222' 
+        color: '#222',
+        paddingRight: 20 // Tránh text dài bị chèn vào dải băng
     },
     companyName: { 
         fontSize: 13, 
@@ -287,7 +303,6 @@ export default StyleSheet.create({
         borderBottomColor: '#f0f0f0',
     },
     modalOptionActive: {
-        // subtle highlight row
     },
     modalOptionText: {
         fontSize: 15,

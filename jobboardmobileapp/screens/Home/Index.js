@@ -7,10 +7,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Apis, { endpoints } from '../../configs/Apis';
 import styles from './Styles';
-
+import { Ionicons } from '@expo/vector-icons';
 const PAGE_SIZE = 10;
 
+// Thêm lựa chọn Đề xuất (-featured_score) lên làm mặc định
 const SORT_OPTIONS = [
+    { label: 'Đề xuất', value: '-featured_score' },
     { label: 'Mới nhất', value: '-created_date' },
     { label: 'Cũ nhất', value: 'created_date' },
     { label: 'Lương cao → thấp', value: '-salary_max' },
@@ -24,7 +26,7 @@ export default function HomeScreen({ navigation }) {
     const [keyword, setKeyword] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
-    const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
+    const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]); // Mặc định là "-featured_score"
     const [showSortModal, setShowSortModal] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -153,67 +155,75 @@ export default function HomeScreen({ navigation }) {
     };
 
     // ==================== JOB CARD ====================
-    const JobCard = ({ job }) => (
-        <TouchableOpacity
-            style={[styles.card, job.is_featured && styles.featuredCard]}
-            onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
-        >
-            {job.is_featured && (
-                <View style={styles.featuredBadge}>
-                    <Text style={styles.featuredBadgeText}>Nổi bật</Text>
-                </View>
-            )}
-            <View style={styles.cardHeader}>
-                <Image source={{ uri: job.company_logo }} style={styles.logo} />
-                <View style={styles.cardInfo}>
-                    <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
-                    <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
-                    <Text style={styles.salary}>
-                        {job.salary_min && job.salary_max
-                            ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
-                            : 'Thỏa thuận'}
-                        {job.location ? ` | ${job.location}` : ''}
-                    </Text>
-                </View>
-            </View>
+    const JobCard = ({ job }) => {
+        const isFeatured = Boolean(job.is_featured);
 
-            <View style={styles.cardFooter}>
-                <View style={styles.tag}>
-                    <Text style={styles.tagText}>
-                        {job.job_type === 'FT' ? 'Full-time'
-                            : job.job_type === 'PT' ? 'Part-time'
-                            : job.job_type === 'RE' ? 'Remote'
-                            : 'Freelance'}
-                    </Text>
-                </View>
-                {!!job.category_name && (
-                    <View style={[styles.tag, { marginLeft: 8 }]}>
-                        <Text style={styles.tagText}>{job.category_name}</Text>
-                    </View>
-                )}
-                {!!job.deadline && (
-                    <View style={[styles.tag, { marginLeft: 8 }]}>
-                        <Text style={styles.tagText}>
-                            HSD: {new Date(job.deadline).toLocaleDateString('vi-VN')}
+        return (
+            <TouchableOpacity
+                style={[styles.card, isFeatured ? styles.cardFeatured : {}]}
+                onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
+            >
+                {/* Dải băng Nổi Bật */}
+                {isFeatured && (
+                    <View style={styles.featuredRibbon}>   
+                        <Text style={styles.featuredRibbonText}>
+                            <Ionicons name="flame" size={10} color="#fff" /> NỔI BẬT
                         </Text>
                     </View>
                 )}
-            </View>
 
-            {job.skills?.length > 0 && (
-                <View style={styles.skillRow}>
-                    {job.skills.slice(0, 3).map(skill => (
-                        <View key={skill.id} style={styles.skillTag}>
-                            <Text style={styles.skillText}>{skill.name ?? ''}</Text>
+                <View style={styles.cardHeader}>
+                    <Image source={{ uri: job.company_logo }} style={styles.logo} />
+                    <View style={styles.cardInfo}>
+                        <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
+                        <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
+                        <Text style={styles.salary}>
+                            {job.salary_min && job.salary_max
+                                ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
+                                : 'Thỏa thuận'}
+                            {job.location ? ` | ${job.location}` : ''}
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={styles.cardFooter}>
+                    <View style={styles.tag}>
+                        <Text style={styles.tagText}>
+                            {job.job_type === 'FT' ? 'Full-time'
+                                : job.job_type === 'PT' ? 'Part-time'
+                                : job.job_type === 'RE' ? 'Remote'
+                                : 'Freelance'}
+                        </Text>
+                    </View>
+                    {!!job.category_name && (
+                        <View style={[styles.tag, { marginLeft: 8 }]}>
+                            <Text style={styles.tagText}>{job.category_name}</Text>
                         </View>
-                    ))}
-                    {job.skills.length > 3 && (
-                        <Text style={styles.moreSkills}>+{job.skills.length - 3}</Text>
+                    )}
+                    {!!job.deadline && (
+                        <View style={[styles.tag, { marginLeft: 8 }]}>
+                            <Text style={styles.tagText}>
+                                HSD: {new Date(job.deadline).toLocaleDateString('vi-VN')}
+                            </Text>
+                        </View>
                     )}
                 </View>
-            )}
-        </TouchableOpacity>
-    );
+
+                {job.skills?.length > 0 && (
+                    <View style={styles.skillRow}>
+                        {job.skills.slice(0, 3).map(skill => (
+                            <View key={skill.id} style={styles.skillTag}>
+                                <Text style={styles.skillText}>{skill.name ?? ''}</Text>
+                            </View>
+                        ))}
+                        {job.skills.length > 3 && (
+                            <Text style={styles.moreSkills}>+{job.skills.length - 3}</Text>
+                        )}
+                    </View>
+                )}
+            </TouchableOpacity>
+        );
+    };
 
     // ==================== COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
@@ -303,7 +313,7 @@ export default function HomeScreen({ navigation }) {
 
                 {/* Job list header */}
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Việc làm mới nhất</Text>
+                    <Text style={styles.sectionTitle}>Việc làm nổi bật</Text>
                     <View style={styles.jobHeaderRight}>
                         {totalJobs > 0 && <Text style={styles.totalCount}>{totalJobs} việc làm</Text>}
                         <TouchableOpacity style={styles.sortChip} onPress={() => setShowSortModal(true)}>

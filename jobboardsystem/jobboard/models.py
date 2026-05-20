@@ -18,7 +18,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='candidate')
     phone = models.CharField(max_length=11, blank=True, null=True)
     avatar = CloudinaryField('avatar', blank=True, null=True)
-
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
     def __str__(self):
         return self.username
 

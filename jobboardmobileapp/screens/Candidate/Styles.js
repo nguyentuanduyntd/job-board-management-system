@@ -108,10 +108,21 @@ export default StyleSheet.create({
         flexDirection: 'row',
         overflow: 'hidden',
         elevation: 3,
+        borderWidth: 2,
+        borderColor: 'transparent',
         shadowColor: '#3B5BDB',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
+    },
+    // Priority card — viền xanh lá + nền xanh lá nhẹ
+    cardPriority: {
+        borderColor: '#22C55E',
+        backgroundColor: '#F0FDF4',
+        elevation: 5,
+        shadowColor: '#22C55E',
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
     },
     stripe: {
         width: 4,
@@ -120,6 +131,26 @@ export default StyleSheet.create({
         flex: 1,
         padding: 14,
         gap: 10,
+    },
+
+    // ── Priority banner (bên trong card) ──────────────────────
+    priBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderRadius: 8,
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    priBannerText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#166534',
+    },
+    priExpiry: {
+        fontSize: 11,
+        fontWeight: '500',
     },
 
     // ── Top row ───────────────────────────────────────────────
@@ -218,6 +249,39 @@ export default StyleSheet.create({
         paddingLeft: 10,
     },
 
+    // ── Action row (priority + cancel) ────────────────────────
+    actionRow: {
+        flexDirection: 'row',
+        gap: 8,
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+    },
+
+    // ── Priority button ───────────────────────────────────────
+    priorityBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: '#22C55E',
+        borderRadius: 20,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        elevation: 2,
+        shadowColor: '#22C55E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+    priorityBtnIcon: {
+        fontSize: 13,
+    },
+    priorityBtnText: {
+        fontSize: 13,
+        color: '#fff',
+        fontWeight: '700',
+    },
+
     // ── Cancel button ─────────────────────────────────────────
     cancelBtn: {
         alignSelf: 'flex-end',
@@ -287,15 +351,17 @@ export default StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.45)',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',     // bottom sheet style cho priority modal
         alignItems: 'center',
-        padding: 32,
+        padding: 0,
     },
     dialog: {
         backgroundColor: '#fff',
         borderRadius: 20,
         padding: 24,
-        width: '100%',
+        width: '88%',
+        alignSelf: 'center',
+        marginBottom: 60,
         alignItems: 'center',
         gap: 10,
         elevation: 10,
@@ -346,5 +412,134 @@ export default StyleSheet.create({
         fontSize: 14,
         color: '#fff',
         fontWeight: '700',
+    },
+
+    // ── Priority modal (bottom sheet) ─────────────────────────
+    priorityDialog: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 20,
+        paddingBottom: 36,
+        width: '100%',
+        maxHeight: '85%',
+        alignItems: 'center',
+        gap: 12,
+        elevation: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+    },
+    handleBar: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#D1D5DB',
+        borderRadius: 4,
+        marginBottom: 4,
+    },
+    priorityDialogTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#1a1a2e',
+        letterSpacing: 0.2,
+    },
+    priorityDialogSub: {
+        fontSize: 13,
+        color: '#666',
+        textAlign: 'center',
+    },
+    priorityDivider: {
+        width: '100%',
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginVertical: 2,
+    },
+    noPkgText: {
+        fontSize: 14,
+        color: '#888',
+        textAlign: 'center',
+        marginVertical: 24,
+    },
+    priorityDialogBtns: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+        marginTop: 4,
+    },
+    priorityConfirmBtn: {
+        flex: 2,
+        backgroundColor: '#22C55E',
+        borderRadius: 14,
+        paddingVertical: 14,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 6,
+        elevation: 2,
+        shadowColor: '#22C55E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+    },
+    priorityConfirmBtnDisabled: {
+        backgroundColor: '#A7F3D0',
+        elevation: 0,
+        shadowOpacity: 0,
+    },
+    priorityConfirmBtnText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+
+    // ── Package card (trong modal) ────────────────────────────
+    pkgCard: {
+        borderWidth: 2,
+        borderRadius: 14,
+        padding: 14,
+        gap: 6,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    pkgCardSelected: {
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+    },
+    pkgHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    pkgBadge: {
+        fontSize: 24,
+    },
+    pkgName: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    pkgDuration: {
+        fontSize: 12,
+        color: '#777',
+        marginTop: 1,
+    },
+    pkgPrice: {
+        fontSize: 15,
+        fontWeight: '800',
+    },
+    pkgDesc: {
+        fontSize: 12,
+        color: '#666',
+        lineHeight: 17,
+    },
+    pkgCheckmark: {
+        alignSelf: 'flex-start',
+        borderRadius: 20,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        marginTop: 2,
     },
 });

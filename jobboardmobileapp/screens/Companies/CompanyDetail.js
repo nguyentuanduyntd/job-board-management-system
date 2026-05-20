@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Apis, { endpoints } from '../../configs/Apis';
 import styles from './Styles'
+import { Ionicons } from '@expo/vector-icons';
 
 const PRIMARY = '#3B5BDB';
 const PAGE_SIZE = 10;
@@ -209,7 +210,10 @@ function CompanyDetail({ route, navigation }) {
 
                     {!!company.address && (
                         <View style={styles.heroMeta}>
-                            <Text style={styles.heroMetaText}>📍 {company.address}</Text>
+                            <Text style={styles.heroMetaText}>
+                                <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                                {company.address}
+                            </Text>
                         </View>
                     )}
 

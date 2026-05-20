@@ -1,6 +1,6 @@
 import axios from "axios";
 
-export const BASE_URL = 'http://192.168.88.88:8000/';
+export const BASE_URL = 'http://192.168.1.125:8000/';
 
 export const endpoints = {
     // Auth
@@ -59,6 +59,7 @@ export const endpoints = {
     // Payment
     'payments' : '/payments/',
     'payment-detail' : (id) => `/payments/${id}/`,
+    'create-payment-intent' : '/payments/create-payment-intent/',
 
     //Statistics
     'admin-statistics' : '/statistics/admin/admin-dashboard/',
