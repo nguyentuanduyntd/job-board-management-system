@@ -236,6 +236,8 @@ class EmployerProfile(BaseModel):
     position = models.CharField(max_length=100, null=True, blank=True) 
     bio = models.TextField(null=True, blank=True)
     is_verified = models.BooleanField(default=False)
+    is_rejected = models.BooleanField(default=False)
+    rejection_reason = models.TextField(null=True, blank=True)
     def __str__(self):
         return f"{self.user.username}'s employer profile"
 

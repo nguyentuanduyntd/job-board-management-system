@@ -122,7 +122,6 @@ function CandidateTab() {
                     'Trang chủ': 'home',
                     'Hồ sơ': 'document-text',
                     'Lịch sử': 'time-outline',
-                    'Chat': 'chatbubble',
                     'Tài khoản': 'person',
                 };
                 return <Ionicons name={icons[route.name]} size={size} color={color} />;
@@ -134,7 +133,6 @@ function CandidateTab() {
             <Tab.Screen name="Trang chủ" component={HomeStack} />
             <Tab.Screen name="Hồ sơ" component={PlaceholderScreen('Hồ sơ')} />
             <Tab.Screen name="Lịch sử" component={HistoryStack} />
-            <Tab.Screen name="Chat" component={PlaceholderScreen('Chat')} />
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>
     );

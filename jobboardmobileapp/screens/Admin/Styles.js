@@ -4,28 +4,29 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTAINER_PADDING = 20;
 
 export const Colors = {
-  bg:         '#F5F7FA',
-  surface:    '#FFFFFF',
-  border:     '#EAECF0',
-  accent:     '#2563EB',
-  accentLight:'#EFF6FF', 
-  green:      '#16A34A',
-  yellow:     '#D97706',
-  red:        '#DC2626',
-  purple:     '#7C3AED',
-  text:       '#111827',
-  textMuted:  '#9AA5B4',
-  textSub:    '#6B7280',
-  textPrimary:'#111827',
-  textSec:    '#6B7280',
-  pending:    '#D97706', 
-  pendingBg:  '#FEF3C7',
-  pendingBdr: '#FDE68A',
-  approved:   '#16A34A',
-  approvedBg: '#F0FDF4',
-  rejected:   '#DC2626',
-  rejectedBg: '#FEF2F2',
+  bg:           '#F5F7FA',
+  surface:      '#FFFFFF',
+  border:       '#EAECF0',
+  accent:       '#2563EB',
+  accentLight:  '#EFF6FF', 
+  green:        '#16A34A',
+  yellow:       '#D97706',
+  red:          '#DC2626',
+  purple:       '#7C3AED',
+  text:         '#111827',
+  textMuted:    '#9AA5B4',
+  textSub:      '#6B7280',
+  textPrimary:  '#111827',
+  textSec:      '#6B7280',
+  pending:      '#D97706', 
+  pendingBg:    '#FEF3C7',
+  pendingBdr:   '#FDE68A',
+  approved:     '#16A34A',
+  approvedBg:   '#F0FDF4',
+  rejected:     '#DC2626',
+  rejectedBg:   '#FEF2F2',
 };
+
 
 export default StyleSheet.create({
   root: {
@@ -209,99 +210,477 @@ export default StyleSheet.create({
     paddingVertical: 30,
   },
 });
+
+
 export const approvalStyles = StyleSheet.create({
-    root:           { flex: 1, backgroundColor: Colors.bg },
-    centered:       { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
- 
-    // Header
-    header:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border },
-    headerTitle:    { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, letterSpacing: -0.3 },
-    headerSub:      { fontSize: 13, color: Colors.textSec, marginTop: 2 },
-    refreshBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.accentLight, justifyContent: 'center', alignItems: 'center' },
-    refreshBtnText: { fontSize: 20, color: Colors.accent },
- 
-    // Tabs
-    tabScroll:      { backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border, maxHeight: 48, flexGrow: 0 },
-    tabContainer:   { paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
-    tab:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 14, marginRight: 4, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    tabText:        { fontSize: 13, color: Colors.textSec },
-    tabBadge:       { marginLeft: 6, minWidth: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
-    tabBadgeText:   { fontSize: 11, fontWeight: '700' },
- 
-    // List
-    listContent:    { paddingHorizontal: 16, paddingTop: 12 },
- 
-    // Card
-    card:               { backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 12, padding: 14, borderWidth: 1, borderColor: Colors.border },
-    cardTop:            { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    companyLogoPlaceholder: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.accentLight, justifyContent: 'center', alignItems: 'center' },
-    companyLogoText:    { fontSize: 18, fontWeight: '700', color: Colors.accent },
-    cardTitle:          { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, flex: 1 },
-    cardCompany:        { fontSize: 13, color: Colors.textSec, marginTop: 2 },
-    statusBadge:        { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 8 },
-    statusBadgeText:    { fontSize: 11, fontWeight: '600' },
-    cardMeta:           { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-    metaTag:            { fontSize: 12, color: Colors.textSec, backgroundColor: Colors.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    cardFooter:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cardTime:           { fontSize: 12, color: Colors.textMuted },
- 
-    // Quick actions
-    quickActions:    { flexDirection: 'row', gap: 8 },
-    quickReject:     { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FECACA', backgroundColor: Colors.rejectedBg },
-    quickRejectText: { fontSize: 13, fontWeight: '600', color: Colors.rejected },
-    quickApprove:    { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.approved },
-    quickApproveText:{ fontSize: 13, fontWeight: '600', color: '#fff' },
- 
-    // Rejection note
-    rejectionNote:      { marginTop: 10, padding: 10, backgroundColor: Colors.rejectedBg, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: Colors.rejected },
-    rejectionNoteLabel: { fontSize: 11, fontWeight: '700', color: Colors.rejected, marginBottom: 2 },
-    rejectionNoteText:  { fontSize: 12, color: '#991B1B' },
- 
-    // Empty state
-    empty:      { alignItems: 'center', paddingVertical: 60 },
-    emptyIcon:  { fontSize: 48, marginBottom: 12 },
-    emptyTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, marginBottom: 6 },
-    emptyDesc:  { fontSize: 14, color: Colors.textSec, textAlign: 'center' },
- 
-    // Reject Modal
-    overlay:              { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalCard:            { backgroundColor: Colors.surface, borderRadius: 16, width: '100%', maxWidth: 400, padding: 24 },
-    modalHeader:          { alignItems: 'center', marginBottom: 20 },
-    modalIconWrap:        { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.rejectedBg, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-    modalIcon:            { fontSize: 22, color: Colors.rejected },
-    modalTitle:           { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-    modalSub:             { fontSize: 13, color: Colors.textSec, textAlign: 'center' },
-    modalLabel:           { fontSize: 13, fontWeight: '600', color: Colors.textPrimary, marginBottom: 8 },
-    modalInput:           { borderWidth: 1, borderColor: Colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: Colors.textPrimary, backgroundColor: Colors.bg, minHeight: 100 },
-    modalActions:         { flexDirection: 'row', gap: 10, marginTop: 20 },
-    cancelBtn:            { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
-    cancelBtnText:        { fontSize: 14, fontWeight: '600', color: Colors.textSec },
-    rejectConfirmBtn:     { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.rejected, alignItems: 'center', justifyContent: 'center' },
-    rejectConfirmBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
- 
-    // Detail Modal
-    detailOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-    detailCard:          { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
-    handleBar:           { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
-    detailHeader:        { flexDirection: 'row', alignItems: 'flex-start', padding: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-    detailTitle:         { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-    detailCompany:       { fontSize: 14, color: Colors.textSec },
-    closeBtn:            { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', marginLeft: 10 },
-    closeBtnText:        { fontSize: 14, color: Colors.textSec },
-    detailScroll:        { paddingHorizontal: 20 },
-    infoGrid:            { paddingVertical: 16, gap: 10 },
-    infoRow:             { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    infoLabel:           { fontSize: 13, color: Colors.textSec, flex: 1 },
-    infoValue:           { fontSize: 13, color: Colors.textPrimary, fontWeight: '500', flex: 2, textAlign: 'right' },
-    detailSection:       { paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.border },
-    detailSectionTitle:  { fontSize: 13, fontWeight: '700', color: Colors.textSec, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-    detailBody:          { fontSize: 14, color: Colors.textPrimary, lineHeight: 22 },
-    skillWrap:           { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    skillChip:           { paddingHorizontal: 12, paddingVertical: 5, backgroundColor: Colors.accentLight, borderRadius: 20 },
-    skillChipText:       { fontSize: 12, fontWeight: '500', color: Colors.accent },
-    detailActions:       { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: Colors.border },
-    detailRejectBtn:     { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.rejected, alignItems: 'center' },
-    detailRejectBtnText: { fontSize: 15, fontWeight: '700', color: Colors.rejected },
-    detailApproveBtn:    { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.approved, alignItems: 'center', justifyContent: 'center' },
-    detailApproveBtnText:{ fontSize: 15, fontWeight: '700', color: '#fff' },
+  root: { 
+    flex: 1, 
+    backgroundColor: Colors.bg 
+  },
+  centered: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: Colors.bg 
+  },
+
+  // Header Component
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 14, 
+    backgroundColor: Colors.surface, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border 
+  },
+  headerTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: Colors.textPrimary, 
+    letterSpacing: -0.3 
+  },
+  headerSub: { 
+    fontSize: 13, 
+    color: Colors.textSec, 
+    marginTop: 2 
+  },
+  refreshBtn: { 
+    width: 38, 
+    height: 38, 
+    borderRadius: 19, 
+    backgroundColor: Colors.accentLight, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  refreshBtnText: { 
+    fontSize: 20, 
+    color: Colors.accent 
+  },
+
+  // Segmented Tabs Control
+  tabScroll: { 
+    backgroundColor: Colors.surface, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border, 
+    maxHeight: 48, 
+    flexGrow: 0 
+  },
+  tabContainer: { 
+    paddingHorizontal: 12, 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  tab: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 12, 
+    paddingVertical: 14, 
+    marginRight: 4, 
+    borderBottomWidth: 2, 
+    borderBottomColor: 'transparent' 
+  },
+  tabText: { 
+    fontSize: 13, 
+    color: Colors.textSec 
+  },
+  tabBadge: { 
+    marginLeft: 6, 
+    minWidth: 20, 
+    height: 20, 
+    borderRadius: 10, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 5 
+  },
+  tabBadgeText: { 
+    fontSize: 11, 
+    fontWeight: '700' 
+  },
+
+  // List Wrapper
+  listContent: { 
+    paddingHorizontal: 16, 
+    paddingTop: 12 
+  },
+
+  // Render Item Cards
+  card: { 
+    backgroundColor: Colors.surface, 
+    borderRadius: 12, 
+    marginBottom: 12, 
+    padding: 14, 
+    borderWidth: 1, 
+    borderColor: Colors.border 
+  },
+  cardTop: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10 
+  },
+  companyLogoPlaceholder: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 10, 
+    backgroundColor: Colors.accentLight, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  companyLogoText: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: Colors.accent 
+  },
+  cardTitle: { 
+    fontSize: 15, 
+    fontWeight: '600', 
+    color: Colors.textPrimary, 
+    flex: 1 
+  },
+  cardCompany: { 
+    fontSize: 13, 
+    color: Colors.textSec, 
+    marginTop: 2 
+  },
+  statusBadge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 3, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    marginLeft: 8 
+  },
+  statusBadgeText: { 
+    fontSize: 11, 
+    fontWeight: '600' 
+  },
+  cardMeta: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 6, 
+    marginBottom: 10 
+  },
+  metaTag: { 
+    fontSize: 12, 
+    color: Colors.textSec, 
+    backgroundColor: Colors.bg, 
+    paddingHorizontal: 8, 
+    paddingVertical: 3, 
+    borderRadius: 6 
+  },
+  cardFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  cardTime: { 
+    fontSize: 12, 
+    color: Colors.textMuted 
+  },
+
+  // Action Triggers Component
+  quickActions: { 
+    flexDirection: 'row', 
+    gap: 8 
+  },
+  quickReject: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 6, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: '#FECACA', 
+    backgroundColor: Colors.rejectedBg 
+  },
+  quickRejectText: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: Colors.rejected 
+  },
+  quickApprove: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 6, 
+    borderRadius: 8, 
+    backgroundColor: Colors.approved 
+  },
+  quickApproveText: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: '#fff' 
+  },
+
+  // Rejection Details Box
+  rejectionNote: { 
+    marginTop: 10, 
+    padding: 10, 
+    backgroundColor: Colors.rejectedBg, 
+    borderRadius: 8, 
+    borderLeftWidth: 3, 
+    borderLeftColor: Colors.rejected 
+  },
+  rejectionNoteLabel: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    color: Colors.rejected, 
+    marginBottom: 2 
+  },
+  rejectionNoteText: { 
+    fontSize: 12, 
+    color: '#991B1B' 
+  },
+
+  // Fallback View State
+  empty: { 
+    alignItems: 'center', 
+    paddingVertical: 60 
+  },
+  emptyIcon: { 
+    fontSize: 48, 
+    marginBottom: 12 
+  },
+  emptyTitle: { 
+    fontSize: 16, 
+    fontWeight: '600', 
+    color: Colors.textPrimary, 
+    marginBottom: 6 
+  },
+  emptyDesc: { 
+    fontSize: 14, 
+    color: Colors.textSec, 
+    textAlign: 'center' 
+  },
+
+  // Reject Prompt Modal View
+  overlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  modalCard: { 
+    backgroundColor: Colors.surface, 
+    borderRadius: 16, 
+    width: '100%', 
+    maxWidth: 400, 
+    padding: 24 
+  },
+  modalHeader: { 
+    alignItems: 'center', 
+    marginBottom: 20 
+  },
+  modalIconWrap: { 
+    width: 52, 
+    height: 52, 
+    borderRadius: 26, 
+    backgroundColor: Colors.rejectedBg, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  modalIcon: { 
+    fontSize: 22, 
+    color: Colors.rejected 
+  },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: Colors.textPrimary, 
+    marginBottom: 4 
+  },
+  modalSub: { 
+    fontSize: 13, 
+    color: Colors.textSec, 
+    textAlign: 'center' 
+  },
+  modalLabel: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: Colors.textPrimary, 
+    marginBottom: 8 
+  },
+  modalInput: { 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    borderRadius: 10, 
+    padding: 12, 
+    fontSize: 14, 
+    color: Colors.textPrimary, 
+    backgroundColor: Colors.bg, 
+    minHeight: 100 
+  },
+  modalActions: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginTop: 20 
+  },
+  cancelBtn: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    alignItems: 'center' 
+  },
+  cancelBtnText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: Colors.textSec 
+  },
+  rejectConfirmBtn: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    borderRadius: 10, 
+    backgroundColor: Colors.rejected, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  rejectConfirmBtnText: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: '#fff' 
+  },
+
+  // Bottom Sheet Profile Detail Modal
+  detailOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.45)', 
+    justifyContent: 'flex-end' 
+  },
+  detailCard: { 
+    backgroundColor: Colors.surface, 
+    borderTopLeftRadius: 20, 
+    borderTopRightRadius: 20, 
+    maxHeight: '90%' 
+  },
+  handleBar: { 
+    width: 40, 
+    height: 4, 
+    backgroundColor: Colors.border, 
+    borderRadius: 2, 
+    alignSelf: 'center', 
+    marginTop: 10, 
+    marginBottom: 4 
+  },
+  detailHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-start', 
+    padding: 20, 
+    paddingBottom: 12, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border 
+  },
+  detailTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: Colors.textPrimary, 
+    marginBottom: 4 
+  },
+  detailCompany: { 
+    fontSize: 14, 
+    color: Colors.textSec 
+  },
+  closeBtn: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 16, 
+    backgroundColor: Colors.bg, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginLeft: 10 
+  },
+  closeBtnText: { 
+    fontSize: 14, 
+    color: Colors.textSec 
+  },
+  detailScroll: { 
+    paddingHorizontal: 20 
+  },
+  infoGrid: { 
+    paddingVertical: 16, 
+    gap: 10 
+  },
+  infoRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'flex-start' 
+  },
+  infoLabel: { 
+    fontSize: 13, 
+    color: Colors.textSec, 
+    flex: 1 
+  },
+  infoValue: { 
+    fontSize: 13, 
+    color: Colors.textPrimary, 
+    fontWeight: '500', 
+    flex: 2, 
+    textAlign: 'right' 
+  },
+  detailSection: { 
+    paddingVertical: 14, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.border 
+  },
+  detailSectionTitle: { 
+    fontSize: 13, 
+    fontWeight: '700', 
+    color: Colors.textSec, 
+    marginBottom: 8, 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.5 
+  },
+  detailBody: { 
+    fontSize: 14, 
+    color: Colors.textPrimary, 
+    lineHeight: 22 
+  },
+  skillWrap: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 8 
+  },
+  skillChip: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 5, 
+    backgroundColor: Colors.accentLight, 
+    borderRadius: 20 
+  },
+  skillChipText: { 
+    fontSize: 12, 
+    fontWeight: '500', 
+    color: Colors.accent 
+  },
+  detailActions: { 
+    flexDirection: 'row', 
+    gap: 12, 
+    padding: 20, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.border 
+  },
+  detailRejectBtn: { 
+    flex: 1, 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    borderWidth: 1.5, 
+    borderColor: Colors.rejected, 
+    alignItems: 'center' 
+  },
+  detailRejectBtnText: { 
+    fontSize: 15, 
+    fontWeight: '700', 
+    color: Colors.rejected 
+  },
+  detailApproveBtn: { 
+    flex: 2, 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    backgroundColor: Colors.approved, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  detailApproveBtnText: { 
+    fontSize: 15, 
+    fontWeight: '700', 
+    color: '#fff' 
+  },
 });

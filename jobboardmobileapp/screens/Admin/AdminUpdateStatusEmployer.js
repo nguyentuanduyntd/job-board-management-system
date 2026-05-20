@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-    View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
-    Modal, Alert, StyleSheet, Animated,
+    View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+    RefreshControl, Modal, Alert, TextInput, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,27 +9,85 @@ import { authApi, endpoints } from '../../configs/Apis';
 import { Colors as C, approvalStyles as s } from './Styles';
 import { Ionicons } from '@expo/vector-icons';
 
-// ─── Employer Detail Modal (Đồng bộ với JobDetailModal) ─────────────────────────
+// ─── Reject Modal ─────────────────────────────────────────────────────────────
+const RejectModal = ({ visible, employerName, onConfirm, onCancel, loading }) => {
+    const [reason, setReason] = useState('');
+
+    useEffect(() => {
+        if (!visible) setReason('');
+    }, [visible]);
+
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={s.overlay}>
+                    <View style={s.modalCard}>
+                        <View style={s.modalHeader}>
+                            <View style={s.modalIconWrap}>
+                                <Text style={s.modalIcon}>✕</Text>
+                            </View>
+                            <Text style={s.modalTitle}>Từ chối tài khoản</Text>
+                            <Text style={s.modalSub} numberOfLines={2}>"{employerName}"</Text>
+                        </View>
+
+                        <Text style={s.modalLabel}>Lý do từ chối *</Text>
+                        <TextInput
+                            style={s.modalInput}
+                            placeholder="Nhập lý do để thông báo cho nhà tuyển dụng..."
+                            placeholderTextColor={C.textMuted}
+                            value={reason}
+                            onChangeText={setReason}
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                        />
+
+                        <View style={s.modalActions}>
+                            <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
+                                <Text style={s.cancelBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[s.rejectConfirmBtn, (!reason.trim() || loading) && { opacity: 0.5 }]}
+                                onPress={() => reason.trim() && onConfirm(reason.trim())}
+                                disabled={!reason.trim() || loading}
+                            >
+                                {loading
+                                    ? <ActivityIndicator size="small" color="#fff" />
+                                    : <Text style={s.rejectConfirmBtnText}>Xác nhận từ chối</Text>
+                                }
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+};
+
+// ─── Employer Detail Modal ────────────────────────────────────────────────────
 const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, actionLoading }) => {
     if (!employer) return null;
 
     const userInfo = employer.user || {};
     const companyInfo = employer.company || {};
 
-    const InfoRow = ({ label, value }) => (
+    const InfoRow = ({ label, value }) =>
         value ? (
             <View style={s.infoRow}>
                 <Text style={s.infoLabel}>{label}</Text>
                 <Text style={s.infoValue}>{value}</Text>
             </View>
-        ) : null
-    );
+        ) : null;
+
+    const isPending = !employer.is_verified && !employer.is_rejected;
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={s.detailOverlay}>
                 <View style={s.detailCard}>
-                    {/* Handle bar */}
                     <View style={s.handleBar} />
 
                     {/* Header */}
@@ -39,7 +97,6 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                                 {companyInfo.name || 'Chưa thiết lập tên công ty'}
                             </Text>
                             <Text style={s.detailCompany}>
-                                <Ionicons name="people" size={16} color="#3d3c3a" style={{ marginRight: 6 }} />
                                 Đại diện: {userInfo.username || '—'}
                             </Text>
                         </View>
@@ -49,36 +106,14 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                     </View>
 
                     <ScrollView style={s.detailScroll} showsVerticalScrollIndicator={false}>
-                        {/* Info grid */}
                         <View style={s.infoGrid}>
-                            <InfoRow 
-                                icon={<Ionicons name="mail" size={14} color="#6B7280" />} 
-                                label="Email liên hệ" 
-                                value={userInfo.email} 
-                            />
-                            <InfoRow 
-                                icon={<Ionicons name="call" size={14} color="#6B7280" />} 
-                                label="Số điện thoại" 
-                                value={userInfo.phone} 
-                            />
-                            <InfoRow 
-                                icon={<Ionicons name="briefcase" size={14} color="#6B7280" />} 
-                                label="Chức vụ đại diện" 
-                                value={employer.position} 
-                            />
-                            <InfoRow 
-                                icon={<Ionicons name="globe" size={14} color="#6B7280" />} 
-                                label="Website" 
-                                value={companyInfo.website} 
-                            />
-                            <InfoRow 
-                                icon={<Ionicons name="location" size={14} color="#6B7280" />} 
-                                label="Trụ sở công ty" 
-                                value={companyInfo.address} 
-                            />
+                            <InfoRow label="Email liên hệ" value={userInfo.email} />
+                            <InfoRow label="Số điện thoại" value={userInfo.phone} />
+                            <InfoRow label="Chức vụ đại diện" value={employer.position} />
+                            <InfoRow label="Website" value={companyInfo.website} />
+                            <InfoRow label="Trụ sở công ty" value={companyInfo.address} />
                         </View>
 
-                        {/* Bio / Giới thiệu */}
                         {employer.bio ? (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Giới thiệu nhà tuyển dụng</Text>
@@ -86,7 +121,6 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                             </View>
                         ) : null}
 
-                        {/* Company Description */}
                         {companyInfo.description ? (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Mô tả công ty</Text>
@@ -94,18 +128,28 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                             </View>
                         ) : null}
 
+                        {/* Hiện lý do từ chối nếu có */}
+                        {employer.is_rejected && employer.rejection_reason ? (
+                            <View style={s.detailSection}>
+                                <Text style={[s.detailSectionTitle, { color: C.rejected }]}>
+                                    Lý do từ chối
+                                </Text>
+                                <Text style={s.detailBody}>{employer.rejection_reason}</Text>
+                            </View>
+                        ) : null}
+
                         <View style={{ height: 24 }} />
                     </ScrollView>
 
-                    {/* Action buttons — chỉ hiển thị khi chưa xác minh */}
-                    {!employer.is_verified && (
+                    {/* Chỉ hiện action buttons khi đang chờ duyệt */}
+                    {isPending && (
                         <View style={s.detailActions}>
                             <TouchableOpacity
                                 style={s.detailRejectBtn}
                                 onPress={() => onReject(employer)}
                                 disabled={actionLoading}
                             >
-                                <Text style={s.detailRejectBtnText}> Từ chối</Text>
+                                <Text style={s.detailRejectBtnText}>Từ chối</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[s.detailApproveBtn, actionLoading && { opacity: 0.6 }]}
@@ -114,7 +158,7 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
                             >
                                 {actionLoading
                                     ? <ActivityIndicator size="small" color="#fff" />
-                                    : <Text style={s.detailApproveBtnText}> Duyệt tài khoản</Text>
+                                    : <Text style={s.detailApproveBtnText}>Duyệt tài khoản</Text>
                                 }
                             </TouchableOpacity>
                         </View>
@@ -125,19 +169,23 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
     );
 };
 
-// ─── Employer Card (Đồng bộ với JobCard) ─────────────────────────────────────────
+// ─── Employer Card ────────────────────────────────────────────────────────────
 const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading }) => {
     const userInfo = employer.user || {};
     const companyInfo = employer.company || {};
-    
-    // Đồng bộ trạng thái theo thuộc tính is_verified (Dữ liệu gốc is_active ngầm ở User)
-    const isPending = !employer.is_verified;
+
+    const isPending = !employer.is_verified && !employer.is_rejected;
+    const isApproved = employer.is_verified;
+    const isRejected = employer.is_rejected && !employer.is_verified;
 
     const statusConfig = {
-        pending:  { label: 'Chờ duyệt',  color: C.pending,  bg: C.pendingBg,  bdr: C.pendingBdr },
-        approved: { label: 'Đã duyệt',   color: C.approved, bg: C.approvedBg, bdr: '#BBF7D0' },
+        pending: { label: 'Chờ duyệt', color: C.pending, bg: C.pendingBg, bdr: C.pendingBdr },
+        approved: { label: 'Đã duyệt', color: C.approved, bg: C.approvedBg, bdr: '#BBF7D0' },
+        rejected: { label: 'Đã từ chối', color: C.rejected, bg: C.rejectedBg, bdr: '#FECACA' },
     };
-    const st = employer.is_verified ? statusConfig.approved : statusConfig.pending;
+    const st = isApproved ? statusConfig.approved
+        : isRejected ? statusConfig.rejected
+            : statusConfig.pending;
 
     const timeAgo = (dateStr) => {
         if (!dateStr) return '';
@@ -159,9 +207,11 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
                 </View>
                 <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={s.cardTitle} numberOfLines={1}>
-                        {companyInfo.name || 'Chưa cập nhật tên cty'}
+                        {companyInfo.name || 'Chưa cập nhật tên công ty'}
                     </Text>
-                    <Text style={s.cardCompany} numberOfLines={1}><Ionicons name="people" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> @{userInfo.username || '—'}</Text>
+                    <Text style={s.cardCompany} numberOfLines={1}>
+                        @{userInfo.username || '—'}
+                    </Text>
                 </View>
                 <View style={[s.statusBadge, { backgroundColor: st.bg, borderColor: st.bdr }]}>
                     <Text style={[s.statusBadgeText, { color: st.color }]}>{st.label}</Text>
@@ -171,21 +221,13 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
             {/* Meta */}
             <View style={s.cardMeta}>
                 {userInfo.email ? (
-                    <Text style={s.metaTag}>
-                        <Ionicons name="mail" size={12} color="#6B7280" /> {userInfo.email}
-                    </Text>
+                    <Text style={s.metaTag}>✉ {userInfo.email}</Text>
                 ) : null}
-                
                 {employer.position ? (
-                    <Text style={s.metaTag}>
-                        <Ionicons name="briefcase" size={12} color="#6B7280" /> {employer.position}
-                    </Text>
+                    <Text style={s.metaTag}>💼 {employer.position}</Text>
                 ) : null}
-                
-                {companyInfo.location || companyInfo.address ? (
-                    <Text style={s.metaTag} numberOfLines={1}>
-                        <Ionicons name="location" size={12} color="#6B7280" /> {companyInfo.location || companyInfo.address}
-                    </Text>
+                {companyInfo.address ? (
+                    <Text style={s.metaTag} numberOfLines={1}>📍 {companyInfo.address}</Text>
                 ) : null}
             </View>
 
@@ -193,19 +235,19 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
             <View style={s.cardFooter}>
                 <Text style={s.cardTime}>{timeAgo(employer.created_at)}</Text>
 
-                {/* Quick actions khi đang chờ duyệt */}
+                {/* Quick actions — chỉ hiện khi pending */}
                 {isPending && (
                     <View style={s.quickActions}>
                         <TouchableOpacity
                             style={s.quickReject}
-                            onPress={(e) => { e.stopPropagation?.(); onReject(employer); }}
+                            onPress={() => onReject(employer)}
                             disabled={actionLoading === employer.id}
                         >
                             <Text style={s.quickRejectText}>Từ chối</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[s.quickApprove, actionLoading === employer.id && { opacity: 0.6 }]}
-                            onPress={(e) => { e.stopPropagation?.(); onApprove(employer); }}
+                            onPress={() => onApprove(employer)}
                             disabled={actionLoading === employer.id}
                         >
                             {actionLoading === employer.id
@@ -216,15 +258,26 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
                     </View>
                 )}
             </View>
+
+            {/* Lý do từ chối */}
+            {isRejected && employer.rejection_reason ? (
+                <View style={s.rejectionNote}>
+                    <Text style={s.rejectionNoteLabel}>Lý do từ chối:</Text>
+                    <Text style={s.rejectionNoteText} numberOfLines={2}>
+                        {employer.rejection_reason}
+                    </Text>
+                </View>
+            ) : null}
         </TouchableOpacity>
     );
 };
 
 // ─── Filter Tabs ──────────────────────────────────────────────────────────────
 const TABS = [
-    { key: 'pending',  label: 'Chờ duyệt', color: C.pending  },
-    { key: 'approved', label: 'Đã duyệt',  color: C.approved },
-    { key: 'all',      label: 'Tất cả',    color: C.accent   },
+    { key: 'pending', label: 'Chờ duyệt', color: C.pending },
+    { key: 'approved', label: 'Đã duyệt', color: C.approved },
+    { key: 'rejected', label: 'Đã từ chối', color: C.rejected },
+    { key: 'all', label: 'Tất cả', color: C.accent },
 ];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -235,42 +288,47 @@ export default function AdminUpdateStatusEmployer() {
     const [activeTab, setActiveTab] = useState('pending');
     const [selectedEmployer, setSelectedEmployer] = useState(null);
     const [showDetail, setShowDetail] = useState(false);
-    const [actionLoading, setActionLoading] = useState(null); // Lưu employer.id khi kích hoạt loading
+    const [showReject, setShowReject] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState(null);
+    const [actionLoading, setActionLoading] = useState(null);
 
-    // ── Fetch dữ liệu (Filter phía client đồng bộ với file mẫu để mượt chuyển tab) ──
+    // ── Fetch toàn bộ, filter client-side ────────────────────────────────────
     const fetchEmployers = useCallback(async (isRefresh = false) => {
         try {
             isRefresh ? setRefreshing(true) : setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            
-            // Gọi API lấy toàn bộ danh sách để phân tách Client-side tab giống file Job
-            const res = await authApi(token).get(endpoints['admin-pending-employers']);
-            setEmployers(res.data || []);
+            const res = await authApi(token).get(endpoints['admin-employers']);
+            const data = res.data;
+            setEmployers(Array.isArray(data) ? data : data?.results || []);
         } catch (ex) {
-            console.error('Fetch admin employers error:', ex.message);
-            Alert.alert('Lỗi', 'Không thể tải danh sách tài khoản.');
+            console.error('Fetch admin employers error:', ex?.response?.status, ex?.message);
+            Alert.alert('Lỗi', 'Không thể tải danh sách tài khoản. Vui lòng thử lại.');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchEmployers();
-    }, [fetchEmployers]);
+    useEffect(() => { fetchEmployers(); }, [fetchEmployers]);
 
-    // ── Xử lý Duyệt tài khoản ───────────────────────────────────────────────────
+    // ── Duyệt ─────────────────────────────────────────────────────────────────
     const handleApprove = useCallback(async (employer) => {
         try {
             setActionLoading(employer.id);
             const token = await AsyncStorage.getItem('token');
             await authApi(token).patch(endpoints['admin-employer-approve'](employer.id));
-            
-            // Cập nhật state cục bộ ngay lập tức
-            setEmployers(prev => prev.map(e => e.id === employer.id ? { ...e, is_verified: true } : e));
-            if (showDetail) setSelectedEmployer(prev => prev ? { ...prev, is_verified: true } : prev);
-            
-            Alert.alert('✓ Thành công', `Tài khoản đại diện "${employer.user?.username}" đã được kích hoạt thành công.`);
+
+            setEmployers(prev => prev.map(e =>
+                e.id === employer.id
+                    ? { ...e, is_verified: true, is_rejected: false, rejection_reason: null }
+                    : e
+            ));
+            if (showDetail) {
+                setSelectedEmployer(prev =>
+                    prev ? { ...prev, is_verified: true, is_rejected: false } : prev
+                );
+            }
+            Alert.alert('✓ Thành công', `Đã duyệt tài khoản "${employer.user?.username}".`);
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể duyệt tài khoản này.';
             Alert.alert('Lỗi', msg);
@@ -279,60 +337,71 @@ export default function AdminUpdateStatusEmployer() {
         }
     }, [showDetail]);
 
-    // ── Xử lý Từ chối tài khoản ──────────────────────────────────────────────────
-    const handleReject = useCallback((employer) => {
+    // ── Mở modal từ chối ──────────────────────────────────────────────────────
+    const handleOpenReject = useCallback((employer) => {
+        setRejectTarget(employer);
         setShowDetail(false);
-        Alert.alert(
-            "Xác nhận từ chối",
-            `Bạn có chắc chắn muốn từ chối kích hoạt tài khoản của "${employer.user?.username}"?`,
-            [
-                { text: "Hủy", style: "cancel" },
-                { 
-                    text: "Xác nhận khóa", 
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            setActionLoading(employer.id);
-                            const token = await AsyncStorage.getItem('token');
-                            await authApi(token).patch(endpoints['admin-employer-reject'](employer.id));
-                            
-                            // Loại bỏ hoặc cập nhật trạng thái tùy theo logic xóa/khóa của bạn
-                            setEmployers(prev => prev.filter(e => e.id !== employer.id));
-                            Alert.alert('Đã xử lý', 'Đã từ chối cấp quyền hoạt động thành công.');
-                        } catch (ex) {
-                            Alert.alert('Lỗi', 'Không thể hoàn tất thao tác từ chối.');
-                        } finally {
-                            setActionLoading(null);
-                        }
-                    }
-                }
-            ]
-        );
+        setShowReject(true);
     }, []);
 
-    // ── Bộ lọc danh sách dựa trên Tab hoạt động ───────────────────────────────────
-    const filtered = activeTab === 'all' 
-        ? employers 
-        : employers.filter(e => activeTab === 'approved' ? e.is_verified : !e.is_verified);
+    // ── Xác nhận từ chối với lý do ────────────────────────────────────────────
+    const handleConfirmReject = useCallback(async (reason) => {
+        if (!rejectTarget) return;
+        try {
+            setActionLoading('modal');
+            const token = await AsyncStorage.getItem('token');
+            await authApi(token).patch(
+                endpoints['admin-employer-reject'](rejectTarget.id),
+                { reason }
+            );
+            setEmployers(prev => prev.map(e =>
+                e.id === rejectTarget.id
+                    ? { ...e, is_verified: false, is_rejected: true, rejection_reason: reason }
+                    : e
+            ));
+            setShowReject(false);
+            setRejectTarget(null);
+            Alert.alert('Đã từ chối', `Tài khoản "${rejectTarget.user?.username}" đã bị từ chối.`);
+        } catch (ex) {
+            const msg = ex?.response?.data?.error || 'Không thể từ chối tài khoản.';
+            Alert.alert('Lỗi', msg);
+        } finally {
+            setActionLoading(null);
+        }
+    }, [rejectTarget]);
+
+    // ── Filter client-side ────────────────────────────────────────────────────
+    const filtered = activeTab === 'all'
+        ? employers
+        : employers.filter(e => {
+            if (activeTab === 'approved') return e.is_verified;
+            if (activeTab === 'rejected') return e.is_rejected && !e.is_verified;
+            if (activeTab === 'pending') return !e.is_verified && !e.is_rejected;
+            return true;
+        });
 
     const countByStatus = (st) => {
         if (st === 'approved') return employers.filter(e => e.is_verified).length;
-        return employers.filter(e => !e.is_verified).length;
+        if (st === 'rejected') return employers.filter(e => e.is_rejected && !e.is_verified).length;
+        if (st === 'pending') return employers.filter(e => !e.is_verified && !e.is_rejected).length;
+        return employers.length;
     };
 
-    // ── Empty State Giao diện trống ──────────────────────────────────────────────
+    // ── Empty state ───────────────────────────────────────────────────────────
     const EmptyState = () => (
         <View style={s.empty}>
-            {activeTab === 'pending' ? (
-                <Ionicons name="celebrate" size={48} color="#FFD700" /> 
-            ) : (
-                <Ionicons name="folder-open-outline" size={48} color="#A9A9A9" />
-            )}
+            <Text style={s.emptyIcon}>
+                {activeTab === 'pending' ? '🎉' :
+                    activeTab === 'rejected' ? '✅' : '📭'}
+            </Text>
             <Text style={s.emptyTitle}>
-                {activeTab === 'pending' ? 'Tất cả hồ sơ đăng ký mới đã được phê duyệt. 🎉' : 'Danh sách trống'}
+                {activeTab === 'pending' ? 'Không có tài khoản nào chờ duyệt' :
+                    activeTab === 'rejected' ? 'Không có tài khoản nào bị từ chối' :
+                        activeTab === 'approved' ? 'Chưa có tài khoản nào được duyệt' :
+                            'Danh sách trống'}
             </Text>
             <Text style={s.emptyDesc}>
-                {activeTab === 'pending' ? 'Hồ sơ đã được xử lý thành công.' : 'Hệ thống chưa ghi nhận tài khoản mới.'}
+                {activeTab === 'pending' ? 'Tất cả hồ sơ đã được xử lý.' : 'Danh sách trống.'}
             </Text>
         </View>
     );
@@ -341,14 +410,17 @@ export default function AdminUpdateStatusEmployer() {
         return (
             <View style={s.centered}>
                 <ActivityIndicator size="large" color={C.accent} />
-                <Text style={[s.emptyDesc, { marginTop: 12 }]}>Đang tải danh sách tài khoản...</Text>
+                <Text style={[s.emptyDesc, { marginTop: 12 }]}>
+                    Đang tải danh sách tài khoản...
+                </Text>
             </View>
         );
     }
 
     return (
         <SafeAreaView style={s.root}>
-            {/* ── Header ── */}
+
+            {/* Header */}
             <View style={s.header}>
                 <View>
                     <Text style={s.headerTitle}>Duyệt doanh nghiệp</Text>
@@ -361,7 +433,7 @@ export default function AdminUpdateStatusEmployer() {
                 </TouchableOpacity>
             </View>
 
-            {/* ── Filter Tabs ── */}
+            {/* Filter Tabs */}
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -369,7 +441,7 @@ export default function AdminUpdateStatusEmployer() {
                 contentContainerStyle={s.tabContainer}
             >
                 {TABS.map(tab => {
-                    const count = tab.key === 'all' ? employers.length : countByStatus(tab.key);
+                    const count = countByStatus(tab.key);
                     const isActive = activeTab === tab.key;
                     return (
                         <TouchableOpacity
@@ -392,39 +464,54 @@ export default function AdminUpdateStatusEmployer() {
                 })}
             </ScrollView>
 
-            {/* ── List ── */}
+            {/* List */}
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={s.listContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={() => fetchEmployers(true)} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={() => fetchEmployers(true)}
+                        tintColor={C.accent}
+                    />
                 }
             >
-                {filtered.length === 0 ? <EmptyState /> : (
-                    filtered.map(emp => (
+                {filtered.length === 0
+                    ? <EmptyState />
+                    : filtered.map(emp => (
                         <EmployerCard
                             key={emp.id}
                             employer={emp}
                             onPress={(e) => { setSelectedEmployer(e); setShowDetail(true); }}
                             onApprove={handleApprove}
-                            onReject={handleReject}
+                            onReject={handleOpenReject}
                             actionLoading={actionLoading}
                         />
                     ))
-                )}
+                }
                 <View style={{ height: 32 }} />
             </ScrollView>
 
-            {/* ── Detail Modal ── */}
+            {/* Detail Modal */}
             <EmployerDetailModal
                 visible={showDetail}
                 employer={selectedEmployer}
                 onClose={() => setShowDetail(false)}
                 onApprove={(e) => { setShowDetail(false); handleApprove(e); }}
-                onReject={(e) => handleReject(e)}
+                onReject={(e) => handleOpenReject(e)}
                 actionLoading={actionLoading !== null && actionLoading !== 'modal'}
             />
+
+            {/* Reject Modal */}
+            <RejectModal
+                visible={showReject}
+                employerName={rejectTarget?.user?.username || ''}
+                onConfirm={handleConfirmReject}
+                onCancel={() => { setShowReject(false); setRejectTarget(null); }}
+                loading={actionLoading === 'modal'}
+            />
+
         </SafeAreaView>
     );
 }

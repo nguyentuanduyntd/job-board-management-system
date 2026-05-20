@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-
+import { StyleSheet, Dimensions } from 'react-native';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default StyleSheet.create({
     container: { 
         flex: 1, 
@@ -316,5 +316,157 @@ export default StyleSheet.create({
         fontSize: 16,
         color: '#3B5BDB',
         fontWeight: '700',
+    },
+    
+    // STYLE CHO CHỨC NĂNG SO SÁNH VIỆC LÀM 
+    cardBottomRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    compareCheckBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        backgroundColor: '#FCFDFF',
+    },
+    compareCheckBtnActive: {
+        borderColor: '#3B5BDB',
+        backgroundColor: '#EFF6FF',
+    },
+    compareCheckText: {
+        fontSize: 12,
+        color: '#4B5563',
+    },
+    compareCheckTextActive: {
+        color: '#3B5BDB',
+        fontWeight: '600',
+    },
+    floatingCompareBar: {
+        position: 'absolute',
+        bottom: 16,
+        left: 16,
+        right: 16,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        padding: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    floatingCompareText: {
+        fontSize: 14,
+        color: '#1F2937',
+        fontWeight: '500',
+    },
+    floatingCompareSub: {
+        fontSize: 11,
+        color: '#9CA3AF',
+        marginTop: 2,
+    },
+    clearCompareBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+    },
+    clearCompareText: {
+        fontSize: 13,
+        color: '#4B5563',
+    },
+    actionCompareBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#3B5BDB',
+    },
+    actionCompareText: {
+        fontSize: 13,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    compareHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+        backgroundColor: '#FFF',
+    },
+    compareCloseBtn: {
+        padding: 4,
+    },
+    compareHeaderTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#111827',
+    },
+    compareScrollRow: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF',
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    compareColumn: {
+        width: SCREEN_WIDTH * 0.45,
+        paddingHorizontal: 12,
+        alignItems: 'center',
+    },
+    compareLogo: {
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        backgroundColor: '#F3F4F6',
+        marginBottom: 8,
+    },
+    compareJobTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#1F2937',
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    compareCompanyName: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginTop: 2,
+        textAlign: 'center',
+    },
+    compareSectionTitle: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#4B5563',
+        backgroundColor: '#F8FAFC',
+        paddingVertical: 6,
+        paddingHorizontal: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    compareItemValue: {
+        fontSize: 13,
+        color: '#111827',
+        fontWeight: '500',
+        textAlign: 'center',
+    },
+    compareLongText: {
+        fontSize: 12,
+        color: '#374151',
+        lineHeight: 18,
+        textAlign: 'justify',
     },
 });

@@ -27,12 +27,16 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('confirm_password')
 
-        # Employer chưa được duyệt thì không đăng nhập được
         if validated_data.get('role') == 'employer':
             validated_data['is_active'] = False
 
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
 
+        # tạo EmployerProfile khi đăng ký tk với role employer
+        if user.role == 'employer':
+            EmployerProfile.objects.create(user=user)
+
+        return user
 #Update again
 #Success
 class UserSerializer(serializers.ModelSerializer):
@@ -356,7 +360,7 @@ class EmployerProfileAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EmployerProfile
-        fields = ['id', 'user', 'company', 'position', 'bio','is_verified','created_at']
+        fields = ['id', 'user', 'company', 'position', 'bio','is_verified', 'is_rejected', 'rejection_reason', 'created_at']
 
 class AdminJobSerializer(serializers.ModelSerializer):
     company = CompanySerializer(read_only=True)

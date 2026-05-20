@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TextInput,
     TouchableOpacity, Image, ScrollView,
-    ActivityIndicator, Modal
+    ActivityIndicator, Modal, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Apis, { endpoints } from '../../configs/Apis';
+import Apis, { authApi, endpoints } from '../../configs/Apis';
+import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
 import { Ionicons } from '@expo/vector-icons';
+
 const PAGE_SIZE = 10;
 
-// Thêm lựa chọn Đề xuất (-featured_score) lên làm mặc định
 const SORT_OPTIONS = [
     { label: 'Đề xuất', value: '-featured_score' },
     { label: 'Mới nhất', value: '-created_date' },
@@ -20,17 +21,23 @@ const SORT_OPTIONS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+    const user = useMyUser(); // Lấy thông tin người dùng hiện tại
+
     const [jobs, setJobs] = useState([]);
     const [categories, setCategories] = useState([]);
     const [featuredCompanies, setFeaturedCompanies] = useState([]);
     const [keyword, setKeyword] = useState('');
     const [loading, setLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
-    const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]); // Mặc định là "-featured_score"
+    const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
     const [showSortModal, setShowSortModal] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalJobs, setTotalJobs] = useState(0);
+
+    // STATE PHỤC VỤ CHỨC NĂNG SO SÁNH (JOB COMPARISON)
+    const [compareJobs, setCompareJobs] = useState([]); // Chứa danh sách các Job đang chọn so sánh
+    const [showCompareModal, setShowCompareModal] = useState(false);
 
     // ==================== LOAD JOBS ====================
     const loadJobs = async () => {
@@ -60,7 +67,7 @@ export default function HomeScreen({ navigation }) {
 
     useEffect(() => { setPage(1); }, [keyword, selectedCategory, sortBy]);
 
-    // ==================== LOAD CATEGORIES ====================
+    // ==================== LOAD CATEGORIES & COMPANIES ====================
     const loadCategories = async () => {
         try {
             const res = await Apis.get(endpoints['categories']);
@@ -70,7 +77,6 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    // ==================== LOAD COMPANIES ====================
     const loadFeaturedCompanies = async () => {
         try {
             const res = await Apis.get(endpoints['companies']);
@@ -98,6 +104,48 @@ export default function HomeScreen({ navigation }) {
         loadCategories();
         loadFeaturedCompanies();
     }, []);
+
+    // ==================== LOGIC XỬ LÝ SO SÁNH ====================
+    const toggleCompareJob = (job) => {
+        if (!user || user.role !== 'candidate') {
+            Alert.alert("Thông báo", "Vui lòng đăng nhập tài khoản Ứng viên để sử dụng chức năng so sánh!");
+            return;
+        }
+
+        const isExist = compareJobs.some(j => j.id === job.id);
+        if (isExist) {
+            setCompareJobs(prev => prev.filter(j => j.id !== job.id));
+            return;
+        }
+
+        if (compareJobs.length >= 5) {
+            Alert.alert("Thông báo", "Bạn chỉ được phép chọn so sánh tối đa 5 công việc cùng lúc!");
+            return;
+        }
+
+        if (compareJobs.length > 0 && compareJobs[0].category_id !== job.category_id) {
+            Alert.alert("Không hợp lệ", "Để đối chiếu chuẩn xác, bạn cần chọn các công việc thuộc cùng một lĩnh vực/ngành nghề!");
+            return;
+        }
+
+        setCompareJobs(prev => [...prev, job]);
+    };
+
+    const handleSyncAndOpenCompare = async () => {
+        if (compareJobs.length < 2) {
+            Alert.alert("Thông báo", "Bạn cần chọn ít nhất 2 công việc để tiến hành đối chiếu so sánh!");
+            return;
+        }
+
+        try {
+            const jobIds = compareJobs.map(j => j.id);
+            await authApi(user.token).post(endpoints['comparison'], { job_ids: jobIds });
+            setShowCompareModal(true);
+        } catch (ex) {
+            console.error('Sync compare error:', ex.message);
+            setShowCompareModal(true);
+        }
+    };
 
     // ==================== PAGINATOR ====================
     const handlePageChange = (newPage) => {
@@ -154,16 +202,13 @@ export default function HomeScreen({ navigation }) {
         );
     };
 
-    // ==================== JOB CARD ====================
+    // JOB CARD 
     const JobCard = ({ job }) => {
         const isFeatured = Boolean(job.is_featured);
+        const isBeingCompared = compareJobs.some(j => j.id === job.id);
 
         return (
-            <TouchableOpacity
-                style={[styles.card, isFeatured ? styles.cardFeatured : {}]}
-                onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
-            >
-                {/* Dải băng Nổi Bật */}
+            <View style={[styles.card, isFeatured ? styles.cardFeatured : {}]}>
                 {isFeatured && (
                     <View style={styles.featuredRibbon}>   
                         <Text style={styles.featuredRibbonText}>
@@ -172,40 +217,53 @@ export default function HomeScreen({ navigation }) {
                     </View>
                 )}
 
-                <View style={styles.cardHeader}>
-                    <Image source={{ uri: job.company_logo }} style={styles.logo} />
-                    <View style={styles.cardInfo}>
-                        <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
-                        <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
-                        <Text style={styles.salary}>
-                            {job.salary_min && job.salary_max
-                                ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
-                                : 'Thỏa thuận'}
-                            {job.location ? ` | ${job.location}` : ''}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                    <View style={styles.tag}>
-                        <Text style={styles.tagText}>
-                            {job.job_type === 'FT' ? 'Full-time'
-                                : job.job_type === 'PT' ? 'Part-time'
-                                : job.job_type === 'RE' ? 'Remote'
-                                : 'Freelance'}
-                        </Text>
-                    </View>
-                    {!!job.category_name && (
-                        <View style={[styles.tag, { marginLeft: 8 }]}>
-                            <Text style={styles.tagText}>{job.category_name}</Text>
-                        </View>
-                    )}
-                    {!!job.deadline && (
-                        <View style={[styles.tag, { marginLeft: 8 }]}>
-                            <Text style={styles.tagText}>
-                                HSD: {new Date(job.deadline).toLocaleDateString('vi-VN')}
+                <TouchableOpacity 
+                    style={{ flex: 1 }} 
+                    onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
+                >
+                    <View style={styles.cardHeader}>
+                        <Image source={{ uri: job.company_logo }} style={styles.logo} />
+                        <View style={styles.cardInfo}>
+                            <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
+                            <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
+                            <Text style={styles.salary}>
+                                {job.salary_min && job.salary_max
+                                    ? `${(job.salary_min / 1e6).toFixed(0)}–${(job.salary_max / 1e6).toFixed(0)} triệu`
+                                    : 'Thỏa thuận'}
+                                {job.location ? ` | ${job.location}` : ''}
                             </Text>
                         </View>
+                    </View>
+                </TouchableOpacity>
+
+                <View style={styles.cardBottomRow}>
+                    <View style={styles.cardFooter}>
+                        <View style={styles.tag}>
+                            <Text style={styles.tagText}>
+                                {{ FT: 'Full-time', PT: 'Part-time', RE: 'Remote', FR: 'Freelance' }[job.job_type] || 'Full-time'}
+                            </Text>
+                        </View>
+                        {!!job.category_name && (
+                            <View style={[styles.tag, { marginLeft: 8 }]}>
+                                <Text style={styles.tagText}>{job.category_name}</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {(!user || user.role === 'candidate') && (
+                        <TouchableOpacity 
+                            style={[styles.compareCheckBtn, isBeingCompared && styles.compareCheckBtnActive]} 
+                            onPress={() => toggleCompareJob(job)}
+                        >
+                            <Ionicons 
+                                name={isBeingCompared ? "checkbox" : "square-outline"} 
+                                size={18} 
+                                color={isBeingCompared ? "#3B5BDB" : "#6B7280"} 
+                            />
+                            <Text style={[styles.compareCheckText, isBeingCompared && styles.compareCheckTextActive]}>
+                                So sánh
+                            </Text>
+                        </TouchableOpacity>
                     )}
                 </View>
 
@@ -221,11 +279,10 @@ export default function HomeScreen({ navigation }) {
                         )}
                     </View>
                 )}
-            </TouchableOpacity>
+            </View>
         );
     };
 
-    // ==================== COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
         <TouchableOpacity
             style={styles.companyCard}
@@ -242,7 +299,6 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    // ==================== SORT MODAL ====================
     const SortModal = () => (
         <Modal transparent visible={showSortModal} animationType="fade" onRequestClose={() => setShowSortModal(false)}>
             <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSortModal(false)}>
@@ -265,10 +321,123 @@ export default function HomeScreen({ navigation }) {
         </Modal>
     );
 
-    // ==================== RENDER ====================
+    //  Bảng so sánh các công việc
+    const JobComparisonModal = () => {
+        if (!showCompareModal) return null;
+
+        return (
+            <Modal visible={showCompareModal} animationType="slide" transparent={false} onRequestClose={() => setShowCompareModal(false)}>
+                <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                    {/* Header Modal */}
+                    <View style={styles.compareHeader}>
+                        <TouchableOpacity style={styles.compareCloseBtn} onPress={() => setShowCompareModal(false)}>
+                            <Ionicons name="arrow-back" size={24} color="#222" />
+                        </TouchableOpacity>
+                        <Text style={styles.compareHeaderTitle}>Bảng Đối Chiếu Việc Làm</Text>
+                        <TouchableOpacity onPress={() => setCompareJobs([]) || setShowCompareModal(false)}>
+                            <Text style={{ color: '#E53E3E', fontWeight: '600' }}>Xóa hết</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                        
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                            {compareJobs.map((item, idx) => (
+                                <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                    <Image source={{ uri: item.company_logo }} style={styles.compareLogo} />
+                                    <Text style={styles.compareJobTitle} numberOfLines={2}>{item.title}</Text>
+                                    <Text style={styles.compareCompanyName} numberOfLines={1}>{item.company_name}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        {/* FIX BUG: Thay thế toàn bộ cụm job.max_salary lỗi thành item.max_salary */}
+                        <Text style={styles.compareSectionTitle}>💰 Mức lương</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                            {compareJobs.map((item, idx) => (
+                                <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                    <Text style={styles.infoValueBlue}>
+                                        {item.salary_min && item.salary_max
+                                            ? `${(item.salary_min / 1e6).toFixed(0)}–${(item.salary_max / 1e6).toFixed(0)} triệu`
+                                            : 'Thỏa thuận'}
+                                    </Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        <Text style={styles.compareSectionTitle}>📍 Địa điểm</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                            {compareJobs.map((item, idx) => (
+                                <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                    <Text style={styles.compareItemValue}>{item.location || 'Chưa cập nhật'}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        <Text style={styles.compareSectionTitle}>⏱ Loại hình</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                            {compareJobs.map((item, idx) => (
+                                <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                    <Text style={styles.compareItemValue}>
+                                        {{ FT: 'Toàn thời gian', PT: 'Bán thời gian', RE: 'Từ xa', FR: 'Freelance' }[item.job_type] || 'Toàn thời gian'}
+                                    </Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        <Text style={styles.compareSectionTitle}>🛠 Kỹ năng yêu cầu</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                            {compareJobs.map((item, idx) => (
+                                <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                    <View style={[styles.skillRow, { justifyContent: 'center' }]}>
+                                        {item.skills && item.skills.length > 0 ? (
+                                            item.skills.map(sk => (
+                                                <View key={sk.id} style={styles.skillTag}>
+                                                    <Text style={styles.skillText}>{sk.name}</Text>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.compareItemValue}>Không yêu cầu</Text>
+                                        )}
+                                    </View>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        {compareJobs.some(j => j.requirements) && (
+                            <>
+                                <Text style={styles.compareSectionTitle}>📝 Yêu cầu ứng viên</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                                    {compareJobs.map((item, idx) => (
+                                        <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                            <Text style={styles.compareLongText}>{item.requirements || '—'}</Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </>
+                        )}
+
+                        {compareJobs.some(j => j.benefits) && (
+                            <>
+                                <Text style={styles.compareSectionTitle}>🎁 Chế độ đãi ngộ</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
+                                    {compareJobs.map((item, idx) => (
+                                        <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
+                                            <Text style={styles.compareLongText}>{item.benefits || '—'}</Text>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
+        );
+    };
+
+    // ==================== MAIN RENDER ====================
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header: Search + Sort */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchRow}>
                     <TextInput
@@ -285,6 +454,7 @@ export default function HomeScreen({ navigation }) {
             </View>
 
             <SortModal />
+            <JobComparisonModal />
 
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Categories */}
@@ -353,8 +523,28 @@ export default function HomeScreen({ navigation }) {
                     </>
                 )}
 
-                <View style={{ height: 20 }} />
+                <View style={{ height: compareJobs.length > 0 ? 80 : 20 }} />
             </ScrollView>
+
+            {/* THANH TRẠNG THÁI NỔI CHỌN SO SÁNH (FLOATING ACTION BAR) */}
+            {compareJobs.length > 0 && (
+                <View style={styles.floatingCompareBar}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.floatingCompareText}>
+                            Đang chọn <Text style={{ fontWeight: 'bold', color: '#3B5BDB' }}>{compareJobs.length}</Text>/5 công việc
+                        </Text>
+                        <Text style={styles.floatingCompareSub}>Các công việc phải thuộc cùng ngành nghề</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <TouchableOpacity style={styles.clearCompareBtn} onPress={() => setCompareJobs([])}>
+                            <Text style={styles.clearCompareText}>Xóa</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionCompareBtn} onPress={handleSyncAndOpenCompare}>
+                            <Text style={styles.actionCompareText}>So sánh ⚖️</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
