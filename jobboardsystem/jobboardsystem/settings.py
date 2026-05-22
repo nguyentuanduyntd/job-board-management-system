@@ -18,24 +18,15 @@ load_dotenv()
 
 from django.conf.global_settings import AUTH_USER_MODEL
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_ROOT = '%s/jobboard/static/' % BASE_DIR
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
-
-
-# Application definition
+ALLOWED_HOSTS = ['192.168.1.176', '127.0.0.1', 'localhost', '0.0.0.0']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -53,6 +44,7 @@ INSTALLED_APPS = [
     'django_filters',
     'oauth2_provider',
     'drf_yasg',
+    'django_celery_results',
 ]
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
@@ -88,8 +80,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'jobboardsystem.wsgi.application'
 
 AUTH_USER_MODEL ="jobboard.User"
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
@@ -97,21 +87,10 @@ DATABASES = {
         'NAME': os.getenv('MYSQL_DATABASE'),
         'USER': os.getenv('MYSQL_USER'),
         'PASSWORD': os.getenv('MYSQL_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'HOST': os.getenv('DB_HOST', '192.168.1.183'),
         'PORT': os.getenv('DB_PORT', '3306'),
     }
 }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'jobboarddb',
-#         'USER': 'root',
-#         'PASSWORD': 'root',
-#         'HOST': 'localhost',
-#         'PORT': '3305',
-#     }
-# }
 
 CKEDITOR_UPLOAD_PATH = 'content/ckeditor/'
 CKEDITOR_CONFIGS = {
@@ -126,8 +105,6 @@ STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET  = os.environ.get('STRIPE_WEBHOOK_SECRET')
 
 
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -177,26 +154,33 @@ AUTHENTICATION_BACKENDS = {
     'oauth2_provider.backends.OAuth2Backend',
     'django.contrib.auth.backends.ModelBackend',
 }
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
+
+#Celery/RabbitMQ
+CELERY_BROKER_URL = os.environ.get('RABBITMQ_URL', 'amqp://guest:guest@rabbitmq:5672//')
+CELERY_RESULT_BACKEND = 'django-db'   
+CELERY_TASK_SERIALIZER  = 'json'
+CELERY_ACCEPT_CONTENT   = ['json']
+CELERY_TIMEZONE         = 'Asia/Ho_Chi_Minh'
+
+#GmailSMTP
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp.gmail.com'
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+
+EMAIL_HOST_USER     = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL  = f'JobApp <{EMAIL_HOST_USER}>'
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True
 
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+USE_TZ = False
 
 STATIC_URL = 'static/'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-
-CLIENT_ID = "Kt5xTc3dBwaB8x3u7QagVKIpheeQlKlLF9JpD5op"
-
-CLIENT_SECRET = "KmAPyd56bJnDvGamxRWCr3tVkptRx9mgPz3ac13Jpchtyhsg9vi3H0rLe9wzQfcruELQGMSvUrgdOZPqgXBeJl58IDqfNbWg7DhGeUrkIgyGZ83ef0MyeOrL6D4X9R1R"

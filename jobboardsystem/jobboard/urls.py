@@ -14,7 +14,6 @@ router.register(r'admin-api/jobs', views.AdminJobViewSet, basename='admin-jobs')
 router.register('comparison', views.JobComparisonViewSet, basename='comparison')
 router.register('payments', views.PaymentViewSet, basename='payment')
 router.register(r'packages', views.PackageViewSet, basename='package')
-
 router.register(r'statistics/admin', views.AdminStatisticsViewSet, basename='admin-statistics')
 router.register(r'statistics/employer', views.EmployerStatisticsViewSet, basename='employer-statistics')
 urlpatterns = [

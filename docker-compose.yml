@@ -1,0 +1,53 @@
+services:
+  # ─── SERVICE 1: BROKER RABBITMQ ───
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: jobboard_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # ─── SERVICE 2: DJANGO WEB API ───
+  web:
+    build: ./jobboardsystem  # Khớp với tên thư mục màu xanh trong ảnh
+    container_name: jobboard_webapi
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./jobboardsystem:/app  # ĐÃ SỬA: Map đúng thư mục chứa manage.py vào container
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./jobboardsystem/.env  # ĐÃ SỬA: Tìm đúng file .env nằm trong thư mục jobboardsystem
+    depends_on:
+      - rabbitmq
+
+  # ─── SERVICE 3: CELERY WORKER (Xử lý gửi email ngầm) ───
+  celery_worker:
+    build: ./jobboardsystem  # Khớp với tên thư mục màu xanh trong ảnh
+    container_name: jobboard_celery
+    command: celery -A jobboardsystem worker --loglevel=info
+    volumes:
+      - ./jobboardsystem:/app  # ĐÃ SỬA: Map đúng thư mục chứa tác vụ Celery
+    env_file:
+      - ./jobboardsystem/.env  # ĐÃ SỬA: Cung cấp file .env cho Celery đọc cấu hình SMTP
+    depends_on:
+      - rabbitmq
+      - web
+
+  # ─── SERVICE 4: FLOWER (Giao diện giám sát Celery Task) ───
+  flower:
+    build: ./jobboardsystem
+    container_name: jobboard_flower
+    command: celery -A jobboardsystem flower --port=5555
+    ports:
+      - "5555:5555"   # Mở cổng 5555 ra ngoài máy thật
+    env_file:
+      - ./jobboardsystem/.env
+    depends_on:
+      - rabbitmq
+      - web
+      
+volumes:
+  rabbitmq_data:

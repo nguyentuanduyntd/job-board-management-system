@@ -140,6 +140,7 @@ export default function MyApplications({ navigation }) {
                 ? res.data
                 : res.data?.results ?? [];
             setApplications(data);
+            return data;
         } catch (ex) {
             console.error('Load applications error:', ex.message);
         } finally {
@@ -230,11 +231,12 @@ export default function MyApplications({ navigation }) {
                     `Hồ sơ của bạn đang được hệ thống nâng cấp lên ưu tiên ${LEVEL_LABELS[selectedPkg.level]}.`,
                     [{ 
                         text: 'OK', 
-                        onPress: () => { 
+                        onPress: async () => { 
+                            const targetId = priorityTarget.id;
                             closePriorityModal(); 
-                            loadApplications(true); 
-                            triggerHighlight(priorityTarget.id); 
-                        } 
+                            await loadApplications(true);  
+                            triggerHighlight(targetId);         
+                        }
                     }]
                 );
                 setPurchasing(false);
@@ -433,7 +435,7 @@ export default function MyApplications({ navigation }) {
             {activeTab === 'ALL' && (
                 <TouchableOpacity
                     style={styles.findJobBtn}
-                    onPress={() => navigation.navigate('Home')}
+                    onPress={() => navigation.navigate('Trang chủ')}
                 >
                     <Text style={styles.findJobBtnText}>Tìm việc ngay</Text>
                 </TouchableOpacity>

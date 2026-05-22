@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Alert } from "react-native";
+import { ScrollView, View, TouchableOpacity, Alert, processColor } from "react-native";
 import { Button, HelperText, TextInput, Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -9,8 +9,9 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = "Kt5xTc3dBwaB8x3u7QagVKIpheeQlKlLF9JpD5op";
-const CLIENT_SECRET = "KmAPyd56bJnDvGamxRWCr3tVkptRx9mgPz3ac13Jpchtyhsg9vi3H0rLe9wzQfcruELQGMSvUrgdOZPqgXBeJl58IDqfNbWg7DhGeUrkIgyGZ83ef0MyeOrL6D4X9R1R";
+const CLIENT_ID     = process.env.EXPO_PUBLIC_CLIENT_ID;
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_CLIENT_SECRET;
+
 
 const Login = () => {
     const [user, setUser]         = useState({ username: "", password: "" });
@@ -59,16 +60,14 @@ const Login = () => {
             // 2. Lấy dữ liệu Profile chi tiết từ Backend
             const userData = await fetchProfile(res.data.access_token);
 
-            // 3. ✅ ĐÃ SỬA: Đẩy thông tin userData vào Context toàn cục 
-            // Bạn hãy đổi dòng dưới đây theo đúng hàm cập nhật Context trong dự án của bạn 
-            // (Ví dụ: loginUser(userData) hoặc dispatch({ type: 'login', payload: userData }))
-            dispatch({ type: "login", payload: userData }); 
-
-            // ✅ XOÁ BỎ TOÀN BỘ CỤM ĐIỀU HƯỚNG THEO ROLE (nav.navigate) Ở ĐÂY.
-            // Hệ thống MainNavigator sẽ tự đọc 'user.role' mới và chuyển đổi giao diện mượt mà!
+            // Điều hướng theo role
+            // if (userData.role === "admin")         nav.navigate("AdminHome");
+            // else if (userData.role === "employer") nav.navigate("EmployerHome");
+            // else                                   nav.navigate("Trang chủ");
 
         } catch (ex) {
             const data = ex?.response?.data;
+
             if (
                 data?.error === "invalid_grant" &&
                 data?.error_description?.toLowerCase().includes("inactive")

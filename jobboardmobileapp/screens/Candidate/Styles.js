@@ -147,10 +147,13 @@ export default StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         color: '#166534',
+        flexShrink: 1,
+        marginRight: 8,
     },
     priExpiry: {
         fontSize: 11,
         fontWeight: '500',
+        flexShrink: 0,
     },
 
     // ── Top row ───────────────────────────────────────────────

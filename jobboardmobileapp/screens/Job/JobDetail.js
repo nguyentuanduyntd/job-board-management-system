@@ -10,7 +10,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import Apis, { authApi, endpoints } from '../../configs/Apis';
 import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
-import axios from "axios";
 import { Ionicons } from '@expo/vector-icons';
 
 // ====== CÁC COMPONENT CON ĐƯỢC TÁCH RA NGOÀI ======
@@ -131,10 +130,10 @@ const ApplyModal = ({ visible, onClose, cvFile, setCvFile, coverLetter, setCover
                     <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
                         <Text style={styles.modalTitle}>Nộp đơn ứng tuyển</Text>
 
-                        {/* ── Tải CV lên ── */}
-                        <Text style={styles.modalLabel}>
-                            Tải CV lên <Text style={{ color: '#E53E3E' }}>*</Text>
-                        </Text>
+                {/* Tải CV lên */}
+                <Text style={styles.modalLabel}>
+                    Tải CV lên <Text style={{ color: '#E53E3E' }}>*</Text>
+                </Text>
 
                         <TouchableOpacity
                             style={[
@@ -233,27 +232,13 @@ export default function JobDetail({ route, navigation }) {
     //Kiểm tra đã ứng tuyển chưa
     const checkApplied = async () => {
         try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return; // Nếu không có token tức là chưa đăng nhập, bỏ qua không check
-
-            const url = endpoints['check-applied']?.(jobId) ?? `${endpoints['applications']}?job_id=${jobId}`;
-            let res = await authApi(token).get(url); // Dùng token từ AsyncStorage
-
-            if (typeof res.data?.has_applied === 'boolean') {
-                setHasApplied(res.data.has_applied);
-            } else {
-                const apps = res.data?.results ?? res.data ?? [];
-                setHasApplied(Array.isArray(apps) && apps.length > 0);
-            }
+            const res = await authApi(user.token).get(
+                `${endpoints['applications']}?job=${jobId}`
+            );
+            const apps = res.data?.results ?? res.data ?? [];
+            setHasApplied(Array.isArray(apps) && apps.length > 0);
         } catch (ex) {
-            const status = ex.response?.status;
-            if (status === 401) {
-                console.warn('checkApplied: token het han');
-            } else if (status === 403) {
-                console.warn('checkApplied: khong co quyen');
-            } else {
-                console.warn('checkApplied loi, bo qua:', status, ex.message);
-            }
+            console.warn('checkApplied lỗi:', ex.response?.status, ex.message);
         }
     };
 
@@ -333,6 +318,7 @@ export default function JobDetail({ route, navigation }) {
             setHasApplied(true);
             setShowApplyModal(false);
             Alert.alert('Thành công', 'Nộp đơn ứng tuyển thành công!');
+            loadJob(); // Reload để cập nhật số lượng mới nếu cần
         } catch (ex) {
             const errMsg = ex.response?.data ? Object.values(ex.response.data).flat().join('\n') : 'Có lỗi xảy ra';
             Alert.alert('Lỗi', errMsg);
@@ -450,15 +436,43 @@ export default function JobDetail({ route, navigation }) {
 
             {/* Apply button */}
             <View style={styles.applyContainer}>
-                <TouchableOpacity
-                    style={[styles.applyBtn, hasApplied && styles.applyBtnDisabled]}
-                    onPress={() => !hasApplied && setShowApplyModal(true)}
-                    disabled={hasApplied}
-                >
-                    <Text style={styles.applyBtnText}>
-                        {hasApplied ? ' Đã ứng tuyển' : 'Nộp đơn ứng tuyển'}
-                    </Text>
-                </TouchableOpacity>
+                {(() => {
+                    // Khai báo bộ kiểm tra điều kiện đóng tuyển (Ép kiểu số Number đồng bộ)
+                    const isExpired = job.deadline ? new Date(job.deadline) < new Date() : false;
+                    const isFullSlot = job.accepted_count !== undefined && job.quantity !== undefined
+                        ? Number(job.accepted_count) >= Number(job.quantity)
+                        : false;
+                    const isClosed = isExpired || isFullSlot;
+
+                    if (isClosed) {
+                        return (
+                            <TouchableOpacity
+                                style={[styles.applyBtn, { backgroundColor: '#9CA3AF' }]} // Đổi sang màu xám vô hiệu hóa
+                                disabled={true} // Khóa hoàn toàn không cho tương tác click
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Ionicons name="lock-closed" size={16} color="#fff" />
+                                    <Text style={styles.applyBtnText}>
+                                        {isFullSlot ? 'Đã đủ số lượng tuyển dụng' : 'Tuyển dụng đã hết hạn'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    }
+
+                    // Nếu mọi thứ bình thường, hiển thị nút bấm ứng tuyển như ban đầu
+                    return (
+                        <TouchableOpacity
+                            style={[styles.applyBtn, hasApplied && styles.applyBtnDisabled]}
+                            onPress={() => !hasApplied && setShowApplyModal(true)}
+                            disabled={hasApplied}
+                        >
+                            <Text style={styles.applyBtnText}>
+                                {hasApplied ? ' ✓ Đã ứng tuyển thành công' : 'Nộp đơn ứng tuyển ngay'}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })()}
             </View>
 
             {/* Modal Nộp Đơn */}

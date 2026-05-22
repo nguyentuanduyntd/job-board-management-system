@@ -186,6 +186,11 @@ class Application(BaseModel):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     employer_note = models.TextField(null=True, blank=True)
     rating = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
+    interview_location = models.CharField(max_length=255, null=True, blank=True)
+    interview_at       = models.DateTimeField(null=True, blank=True)
+    interview_note     = models.TextField(null=True, blank=True)
+    interview_map_url  = models.URLField(null=True, blank=True)  # Google Maps link
+    interview_notified = models.BooleanField(default=False)
     #CV priority
     is_priority = models.BooleanField(default=False)
     priority_level = models.IntegerField(default=0)

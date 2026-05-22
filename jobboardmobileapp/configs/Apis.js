@@ -1,6 +1,10 @@
 import axios from "axios";
 
+<<<<<<< HEAD
 export const BASE_URL = 'http://192.168.1.17:8000';
+=======
+export const BASE_URL = 'http://192.168.1.176:8000';
+>>>>>>> c67254b (Docker rabbit)
 
 export const endpoints = {
     // Auth
@@ -12,6 +16,7 @@ export const endpoints = {
     'profile' : '/auth/profile/',
     'google_login':    '/auth/google-login/',
     'google_register': '/auth/google-register/',
+    
     // Profiles theo role
     'candidate-profile' : '/candidate/profile/',
     'employer-profile' : '/employer/profile/',
@@ -31,6 +36,10 @@ export const endpoints = {
     'application-detail': (id) => `/applications/${id}/`,
     'application-update-status':(id) => `/applications/${id}/update-status/`,
     'application-add-note':     (id) => `/applications/${id}/add-note/`,
+    
+    //Interview (lịch phỏng vấn)
+    'applications-accepted': '/applications/accepted/',
+    'application-schedule-interview': (id) => `/applications/${id}/schedule-interview/`,
 
     // Companies
     'companies' : '/companies/',

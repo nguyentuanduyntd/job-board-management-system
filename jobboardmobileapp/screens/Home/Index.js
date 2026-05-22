@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View, Text, FlatList, TextInput,
     TouchableOpacity, Image, ScrollView,
     ActivityIndicator, Modal, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Apis, { authApi, endpoints } from '../../configs/Apis';
 import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
@@ -21,7 +22,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function HomeScreen({ navigation }) {
-    const user = useMyUser(); // Lấy thông tin người dùng hiện tại
+    const user = useMyUser();
 
     const [jobs, setJobs] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -35,75 +36,110 @@ export default function HomeScreen({ navigation }) {
     const [totalPages, setTotalPages] = useState(1);
     const [totalJobs, setTotalJobs] = useState(0);
 
-    // STATE PHỤC VỤ CHỨC NĂNG SO SÁNH (JOB COMPARISON)
-    const [compareJobs, setCompareJobs] = useState([]); // Chứa danh sách các Job đang chọn so sánh
+    // STATE PHỤC VỤ CHỨC NĂNG SO SÁNH
+    const [compareJobs, setCompareJobs] = useState([]);
     const [showCompareModal, setShowCompareModal] = useState(false);
 
+    // Ref để tránh gọi API trùng khi filter thay đổi + page reset cùng lúc
+    const isFilterChanging = useRef(false);
+
     // ==================== LOAD JOBS ====================
-    const loadJobs = async () => {
+    const loadJobs = useCallback(async (currentPage, currentKeyword, currentCategory, currentSort) => {
         try {
             setLoading(true);
-            let url = `${endpoints['jobs']}?page=${page}&ordering=${sortBy.value}`;
-            if (keyword) url += `&search=${keyword}`;
-            if (selectedCategory) url += `&category=${selectedCategory}`;
+            let url = `${endpoints['jobs']}?page=${currentPage}&ordering=${currentSort.value}`;
+            if (currentKeyword) url += `&search=${encodeURIComponent(currentKeyword)}`;
+            if (currentCategory) url += `&category=${currentCategory}`;
 
             const res = await Apis.get(url);
             const count = res.data?.count ?? 0;
             setTotalJobs(count);
             setTotalPages(Math.ceil(count / PAGE_SIZE));
-            setJobs(page === 1 ? res.data.results : prev => [...prev, ...res.data.results]);
+            setJobs(res.data?.results ?? []);
         } catch (ex) {
             console.error('Load jobs error:', ex.message);
-            if (page === 1) setJobs([]);
+            setJobs([]);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    useEffect(() => {
-        const timer = setTimeout(() => { if (page > 0) loadJobs(); }, 500);
-        return () => clearTimeout(timer);
-    }, [keyword, selectedCategory, sortBy, page]);
-
-    useEffect(() => { setPage(1); }, [keyword, selectedCategory, sortBy]);
-
-    // ==================== LOAD CATEGORIES & COMPANIES ====================
-    const loadCategories = async () => {
+    // ==================== LOAD CATEGORIES ====================
+    // Chỉ gọi 1 lần khi mount
+    const loadCategories = useCallback(async () => {
         try {
             const res = await Apis.get(endpoints['categories']);
             setCategories(Array.isArray(res.data) ? res.data : res.data?.results ?? []);
         } catch (ex) {
             console.error('Load categories error:', ex.message);
         }
-    };
+    }, []);
 
-    const loadFeaturedCompanies = async () => {
+    // ==================== LOAD FEATURED COMPANIES ====================
+    // companiesLoaded ref để tránh gọi lại mỗi lần focus — N+1 rất tốn quota
+    const companiesLoaded = useRef(false);
+
+    const loadFeaturedCompanies = useCallback(async () => {
+        if (companiesLoaded.current) return;
         try {
             const res = await Apis.get(endpoints['companies']);
             const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
             const companies = data.slice(0, 6);
+
+            // Hiển thị ngay logo/tên trước khi có job_count
             setFeaturedCompanies(companies.map(c => ({ ...c, job_count: null })));
 
-            const withCounts = await Promise.all(
-                companies.map(async (company) => {
-                    try {
-                        const jobRes = await Apis.get(`${endpoints['jobs']}?company=${company.id}&page_size=1`);
-                        return { ...company, job_count: jobRes.data?.count ?? 0 };
-                    } catch {
-                        return { ...company, job_count: 0 };
-                    }
-                })
-            );
+            // Fetch job_count tuần tự (sequential) thay vì Promise.all để tránh bùng nổ request
+            const withCounts = [];
+            for (const company of companies) {
+                try {
+                    const jobRes = await Apis.get(`${endpoints['jobs']}?company=${company.id}&page_size=1`);
+                    withCounts.push({ ...company, job_count: jobRes.data?.count ?? 0 });
+                } catch {
+                    withCounts.push({ ...company, job_count: 0 });
+                }
+            }
             setFeaturedCompanies(withCounts);
+            companiesLoaded.current = true;
         } catch (ex) {
             console.error('Load companies error:', ex.message);
         }
-    };
+    }, []);
 
+    // ==================== MOUNT: load static data 1 lần ====================
     useEffect(() => {
         loadCategories();
         loadFeaturedCompanies();
     }, []);
+
+    // ==================== KHI FILTER THAY ĐỔI: reset page về 1 ====================
+    // Dùng ref để không trigger loadJobs 2 lần (1 lần do filter, 1 lần do page reset)
+    useEffect(() => {
+        isFilterChanging.current = true;
+        setPage(1);
+    }, [keyword, selectedCategory, sortBy]);
+
+    // ==================== KHI PAGE THAY ĐỔI: load jobs ====================
+    useEffect(() => {
+        // Nếu page vừa được reset bởi filter change, bỏ qua lần render này
+        // và để lần render tiếp theo (sau khi isFilterChanging reset) mới gọi
+        if (isFilterChanging.current && page === 1) {
+            isFilterChanging.current = false;
+            loadJobs(1, keyword, selectedCategory, sortBy);
+            return;
+        }
+        if (!isFilterChanging.current) {
+            loadJobs(page, keyword, selectedCategory, sortBy);
+        }
+    }, [page, keyword, selectedCategory, sortBy]);
+
+    // ==================== FOCUS: reload jobs khi quay lại màn hình ====================
+    // KHÔNG truyền deps filter để tránh gọi trùng với useEffect trên
+    useFocusEffect(
+        useCallback(() => {
+            loadJobs(page, keyword, selectedCategory, sortBy);
+        }, []) // deps rỗng: chỉ gọi khi focus, không gọi lại khi filter đổi
+    );
 
     // ==================== LOGIC XỬ LÝ SO SÁNH ====================
     const toggleCompareJob = (job) => {
@@ -140,9 +176,10 @@ export default function HomeScreen({ navigation }) {
         try {
             const jobIds = compareJobs.map(j => j.id);
             await authApi(user.token).post(endpoints['comparison'], { job_ids: jobIds });
-            setShowCompareModal(true);
         } catch (ex) {
             console.error('Sync compare error:', ex.message);
+        } finally {
+            // Luôn mở modal dù sync lỗi
             setShowCompareModal(true);
         }
     };
@@ -155,6 +192,7 @@ export default function HomeScreen({ navigation }) {
 
     const Paginator = () => {
         if (totalPages <= 1) return null;
+
         const getPageNumbers = () => {
             const pages = [];
             const start = Math.max(1, page - 2);
@@ -174,7 +212,7 @@ export default function HomeScreen({ navigation }) {
                     onPress={() => handlePageChange(page - 1)}
                     disabled={page === 1}
                 >
-                    <Text style={[styles.pageBtnText, page === 1 && styles.pageBtnTextDisabled]}>‹</Text>
+                    <Ionicons name="chevron-back" size={16} color={page === 1 ? "#ccc" : "#333"} />
                 </TouchableOpacity>
 
                 {getPageNumbers().map((p, index) =>
@@ -196,29 +234,27 @@ export default function HomeScreen({ navigation }) {
                     onPress={() => handlePageChange(page + 1)}
                     disabled={page === totalPages}
                 >
-                    <Text style={[styles.pageBtnText, page === totalPages && styles.pageBtnTextDisabled]}>›</Text>
+                    <Ionicons name="chevron-forward" size={16} color={page === totalPages ? "#ccc" : "#333"} />
                 </TouchableOpacity>
             </View>
         );
     };
 
-    // JOB CARD 
+    // ==================== JOB CARD COMPONENT ====================
     const JobCard = ({ job }) => {
         const isFeatured = Boolean(job.is_featured);
         const isBeingCompared = compareJobs.some(j => j.id === job.id);
 
-        return (
-            <View style={[styles.card, isFeatured ? styles.cardFeatured : {}]}>
-                {isFeatured && (
-                    <View style={styles.featuredRibbon}>   
-                        <Text style={styles.featuredRibbonText}>
-                            <Ionicons name="flame" size={10} color="#fff" /> NỔI BẬT
-                        </Text>
-                    </View>
-                )}
+        const isExpired = job.deadline ? new Date(job.deadline) < new Date() : false;
+        const isFullSlot = job.accepted_count !== undefined && job.quantity !== undefined
+            ? Number(job.accepted_count) >= Number(job.quantity || 1)
+            : false;
+        const isClosed = isExpired || isFullSlot;
 
-                <TouchableOpacity 
-                    style={{ flex: 1 }} 
+        return (
+            <View style={[styles.card, isFeatured ? styles.cardFeatured : {}, isClosed && { opacity: 0.82, backgroundColor: '#FAFAFA' }]}>
+                <TouchableOpacity
+                    style={{ flex: 1 }}
                     onPress={() => navigation.navigate('JobDetail', { jobId: job.id })}
                 >
                     <View style={styles.cardHeader}>
@@ -232,6 +268,15 @@ export default function HomeScreen({ navigation }) {
                                     : 'Thỏa thuận'}
                                 {job.location ? ` | ${job.location}` : ''}
                             </Text>
+
+                            {isClosed && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 }}>
+                                    <Ionicons name="warning" size={14} color="#EF4444" />
+                                    <Text style={{ fontSize: 13, color: '#EF4444', fontStyle: 'italic', fontWeight: '600' }}>
+                                        Lưu ý: {isFullSlot ? 'Đã tuyển đủ chỉ tiêu' : 'Đã đóng hạn nhận hồ sơ'}
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -250,15 +295,15 @@ export default function HomeScreen({ navigation }) {
                         )}
                     </View>
 
-                    {(!user || user.role === 'candidate') && (
-                        <TouchableOpacity 
-                            style={[styles.compareCheckBtn, isBeingCompared && styles.compareCheckBtnActive]} 
+                    {(!user || user.role === 'candidate') && !isClosed && (
+                        <TouchableOpacity
+                            style={[styles.compareCheckBtn, isBeingCompared && styles.compareCheckBtnActive]}
                             onPress={() => toggleCompareJob(job)}
                         >
-                            <Ionicons 
-                                name={isBeingCompared ? "checkbox" : "square-outline"} 
-                                size={18} 
-                                color={isBeingCompared ? "#3B5BDB" : "#6B7280"} 
+                            <Ionicons
+                                name={isBeingCompared ? "checkbox" : "square-outline"}
+                                size={18}
+                                color={isBeingCompared ? "#3B5BDB" : "#6B7280"}
                             />
                             <Text style={[styles.compareCheckText, isBeingCompared && styles.compareCheckTextActive]}>
                                 So sánh
@@ -283,6 +328,7 @@ export default function HomeScreen({ navigation }) {
         );
     };
 
+    // ==================== FEATURED COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
         <TouchableOpacity
             style={styles.companyCard}
@@ -299,6 +345,7 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
     );
 
+    // ==================== SORT MODAL ====================
     const SortModal = () => (
         <Modal transparent visible={showSortModal} animationType="fade" onRequestClose={() => setShowSortModal(false)}>
             <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSortModal(false)}>
@@ -313,7 +360,7 @@ export default function HomeScreen({ navigation }) {
                             <Text style={[styles.modalOptionText, sortBy.value === opt.value && styles.modalOptionTextActive]}>
                                 {opt.label}
                             </Text>
-                            {sortBy.value === opt.value && <Text style={styles.modalCheck}>✓</Text>}
+                            {sortBy.value === opt.value && <Ionicons name="checkmark" size={16} color="#3B5BDB" />}
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -321,26 +368,25 @@ export default function HomeScreen({ navigation }) {
         </Modal>
     );
 
-    //  Bảng so sánh các công việc
+    // ==================== JOB COMPARISON MODAL ====================
     const JobComparisonModal = () => {
         if (!showCompareModal) return null;
 
         return (
             <Modal visible={showCompareModal} animationType="slide" transparent={false} onRequestClose={() => setShowCompareModal(false)}>
                 <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                    {/* Header Modal */}
                     <View style={styles.compareHeader}>
                         <TouchableOpacity style={styles.compareCloseBtn} onPress={() => setShowCompareModal(false)}>
                             <Ionicons name="arrow-back" size={24} color="#222" />
                         </TouchableOpacity>
                         <Text style={styles.compareHeaderTitle}>Bảng Đối Chiếu Việc Làm</Text>
-                        <TouchableOpacity onPress={() => setCompareJobs([]) || setShowCompareModal(false)}>
+                        <TouchableOpacity onPress={() => { setCompareJobs([]); setShowCompareModal(false); }}>
                             <Text style={{ color: '#E53E3E', fontWeight: '600' }}>Xóa hết</Text>
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-                        
+                        {/* Header: logo + tên */}
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                             {compareJobs.map((item, idx) => (
                                 <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
@@ -351,7 +397,6 @@ export default function HomeScreen({ navigation }) {
                             ))}
                         </ScrollView>
 
-                        {/* FIX BUG: Thay thế toàn bộ cụm job.max_salary lỗi thành item.max_salary */}
                         <Text style={styles.compareSectionTitle}>💰 Mức lương</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                             {compareJobs.map((item, idx) => (
@@ -448,7 +493,7 @@ export default function HomeScreen({ navigation }) {
                         returnKeyType="search"
                     />
                     <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortModal(true)}>
-                        <Text style={styles.sortBtnIcon}>⇅</Text>
+                        <Ionicons name="swap-vertical" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -492,7 +537,7 @@ export default function HomeScreen({ navigation }) {
                     </View>
                 </View>
 
-                {/* Jobs */}
+                {/* Jobs List */}
                 {loading ? (
                     <ActivityIndicator size="large" color="#3B5BDB" style={{ marginTop: 40 }} />
                 ) : jobs.length === 0 ? (
@@ -526,7 +571,7 @@ export default function HomeScreen({ navigation }) {
                 <View style={{ height: compareJobs.length > 0 ? 80 : 20 }} />
             </ScrollView>
 
-            {/* THANH TRẠNG THÁI NỔI CHỌN SO SÁNH (FLOATING ACTION BAR) */}
+            {/* THANH TRẠNG THÁI NỔI CHỌN SO SÁNH */}
             {compareJobs.length > 0 && (
                 <View style={styles.floatingCompareBar}>
                     <View style={{ flex: 1 }}>

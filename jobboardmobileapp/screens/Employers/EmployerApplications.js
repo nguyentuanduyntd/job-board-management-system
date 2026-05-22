@@ -1,22 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Linking
+    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Linking, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { authApi, endpoints } from '../../configs/Apis';
-
-// Import styles và Colors
 import styles, { Colors } from './Styles'; 
+import { Ionicons } from '@expo/vector-icons';
 
-// CẤU HÌNH GIAO DIỆN CÁC GÓI VIP ƯU TIÊN
 const VIP_CONFIG = {
-    1: { border: '#F59E0B', bg: '#FFFBEB', text: '#D97706', icon: '🥉', label: 'VIP 1' },
-    2: { border: '#0EA5E9', bg: '#F0F9FF', text: '#0369A1', icon: '🥈', label: 'VIP 2' },
-    3: { border: '#A855F7', bg: '#FAF5FF', text: '#7E22CE', icon: '🥇', label: 'VIP 3' },
+    1: { border: '#F59E0B', bg: '#FFFBEB', text: '#D97706', icon: <Ionicons name="medal" size={16} color="#B45309" />, label: 'VIP 1' },
+    2: { border: '#0EA5E9', bg: '#F0F9FF', text: '#0369A1', icon: <Ionicons name="medal" size={16} color="#9CA3AF" />, label: 'VIP 2' },
+    3: { border: '#A855F7', bg: '#FAF5FF', text: '#7E22CE', icon: <Ionicons name="medal" size={16} color="#F59E0B" />, label: 'VIP 3' },
 };
+const PAGE_SIZE = 5;
 
 export default function EmployerApplication() {
     const [applications, setApplications] = useState([]);
@@ -28,7 +27,7 @@ export default function EmployerApplication() {
     const [refreshing, setRefreshing] = useState(false);
     const [page, setPage] = useState(1);
     const [hasNext, setHasNext] = useState(true);
-
+    const [totalPages, setTotalPages] = useState(1);
     const [selectedApp, setSelectedApp] = useState(null);
     const [note, setNote] = useState('');
     const [processing, setProcessing] = useState(false);
@@ -36,7 +35,8 @@ export default function EmployerApplication() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const res = await authApi().get(endpoints['categories']);
+                const token = await AsyncStorage.getItem("token");
+                const res = await authApi(token).get(endpoints['categories']);
                 setCategories(res.data.results || res.data);
             } catch (ex) {
                 console.error("Lỗi load danh mục:", ex);
@@ -52,25 +52,20 @@ export default function EmployerApplication() {
 
         try {
             const token = await AsyncStorage.getItem("token");
-            let url = `${endpoints['applications']}?page=${pageNumber}`;
+            let url = `${endpoints['applications']}?page=${pageNumber}&page_size=${PAGE_SIZE}`;
             if (category) url += `&job__category=${category}`;
 
             const res = await authApi(token).get(url);
             const newData = res.data.results || [];
             
-            if (pageNumber === 1) {
-                setApplications(newData);
-            } else {
-                setApplications(prev => [...prev, ...newData]);
-            }
-            
-            setHasNext(res.data.next !== null);
+            setApplications(newData);
+            const total = res.data.count || 0;
+            setTotalPages(Math.ceil(total / PAGE_SIZE));
             setPage(pageNumber);
         } catch (error) {
             console.error("Lỗi load applications:", error);
         } finally {
             setLoading(false);
-            setLoadingMore(false);
             setRefreshing(false);
         }
     }, [selectedCategory]);
@@ -79,14 +74,20 @@ export default function EmployerApplication() {
         loadApplications(1, selectedCategory);
     }, [selectedCategory, loadApplications]);
 
-    const handleLoadMore = () => {
-        if (hasNext && !loadingMore && !loading) {
-            loadApplications(page + 1, selectedCategory);
-        }
-    };
-
     const handleEvaluate = async (newStatus) => {
         if (!selectedApp) return;
+
+        // Chặn UI: Không cho ACCEPTED nếu job tương ứng của đơn này đã đầy chỉ tiêu trước đó
+        if (newStatus === 'ACCEPTED') {
+            const currentAccepted = Number(selectedApp.job?.accepted_count || 0);
+            const targetQuantity = Number(selectedApp.job?.quantity || 1);
+
+            if (currentAccepted >= targetQuantity) {
+                Alert.alert("Không thể phê duyệt", "Vị trí tuyển dụng này đã tuyển đạt tối đa số lượng chỉ tiêu!");
+                return;
+            }
+        }
+
         setProcessing(true);
         try {
             const token = await AsyncStorage.getItem("token");
@@ -142,17 +143,16 @@ export default function EmployerApplication() {
             >
                 {isVip && (
                     <View style={styles.vipRow}>
-                        <View style={[styles.vipBadge, { backgroundColor: vipStyle.border }]}>
-                            <Text style={styles.vipBadgeText}>
-                                {vipStyle.icon} {vipStyle.label}
-                            </Text>
+                        <View style={[styles.vipBadge, { backgroundColor: vipStyle.border, flexDirection: 'row', alignItems: 'center' }]}>
+                            {vipStyle.icon}
+                            <Text style={[styles.vipBadgeText, { marginLeft: 4 }]}>{vipStyle.label}</Text>
                         </View>
                         <Text style={[styles.vipLabel, { color: vipStyle.text }]}>Hồ sơ nổi bật</Text>
                     </View>
                 )}
                 
-                <Text style={styles.candidateName}>{item.candidate.username}</Text>
-                <Text style={styles.jobTitleText}>Ứng tuyển: {item.job.title}</Text>
+                <Text style={styles.candidateName}>{item.candidate?.username || 'Ẩn danh'}</Text>
+                <Text style={styles.jobTitleText}>Ứng tuyển: {item.job?.title}</Text>
                 <Text style={styles.dateText}>Nộp lúc: {new Date(item.created_at).toLocaleDateString('vi-VN')}</Text>
                 
                 <View style={[styles.statusWrap, { backgroundColor: statusStyle.bg }]}>
@@ -171,7 +171,6 @@ export default function EmployerApplication() {
                 </View>
             </View>
 
-            {/* Filter Panel */}
             <View style={styles.filterContainer}>
                 <View style={styles.pickerWrapper}>
                     <Picker
@@ -187,7 +186,6 @@ export default function EmployerApplication() {
                 </View>
             </View>
 
-            {/* Application List */}
             {loading ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color={Colors.accent} />
@@ -201,32 +199,29 @@ export default function EmployerApplication() {
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={() => loadApplications(1, selectedCategory, true)} />
                     }
-                    onEndReached={handleLoadMore}
-                    onEndReachedThreshold={0.5}
-                    ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={Colors.accent} style={styles.loadingFooter} /> : null}
                     ListEmptyComponent={<Text style={styles.emptyText}>Không tìm thấy đơn ứng tuyển nào.</Text>}
                 />
             )}
 
-            {/* Modal Đánh Giá */}
             <Modal visible={!!selectedApp} animationType="slide" transparent={true}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Đánh giá ứng viên</Text>
+                <View style={styles.interview.modalOverlay}>
+                    <View style={styles.interview.modalSheet}>
+                        <View style={styles.interview.handleBar} />
+                        <Text style={styles.interview.modalTitle}>Đánh giá ứng viên</Text>
                         
                         {selectedApp && (
-                            <>
+                            <ScrollView showsVerticalScrollIndicator={false}>
                                 <Text style={styles.modalRow}>
-                                    Ứng viên: <Text style={styles.modalValue}>{selectedApp.candidate.username}</Text>
+                                    Ứng viên: <Text style={styles.modalValue}>{selectedApp.candidate?.username}</Text>
                                 </Text>
-                                <Text style={styles.modalJob}>Công việc: {selectedApp.job.title}</Text>
+                                <Text style={styles.modalJob}>Công việc: {selectedApp.job?.title}</Text>
                                 
                                 <TouchableOpacity 
                                     style={styles.cvBtn}
-                                    onPress={() =>{
-                                        const url = selectedApp.cv_file_url || selectedApp.candidate.profile?.cv_file_url;
+                                    onPress={() => {
+                                        const url = selectedApp.cv_file_url || selectedApp.candidate?.profile?.cv_file_url;
                                         if (!url) {
-                                            Alert.alert("Thông báo", "Ứng viên chưa đính kèm CV")
+                                            Alert.alert("Thông báo", "Ứng viên chưa đính kèm CV");
                                             return;
                                         }
                                         Linking.openURL(url);
@@ -276,7 +271,7 @@ export default function EmployerApplication() {
                                 >
                                     <Text style={styles.btnCloseText}>ĐÓNG</Text>
                                 </TouchableOpacity>
-                            </>
+                            </ScrollView>
                         )}
                     </View>
                 </View>

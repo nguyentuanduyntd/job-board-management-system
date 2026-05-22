@@ -218,7 +218,7 @@ const Profile = () => {
             { text: 'Hủy', style: 'cancel' },
             {
                 text: 'Đăng xuất',
-                onPress: () => { dispatch({ type: 'logout' }); nav.navigate('Home'); },
+                onPress: () => { dispatch({ type: 'logout' }); },
                 style: 'destructive',
             },
         ]);

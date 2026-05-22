@@ -1,13 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
-    Modal, TextInput, Alert, StyleSheet, Animated, KeyboardAvoidingView, Platform // Thêm KeyboardAvoidingView và Platform
+    Modal, TextInput, Alert, KeyboardAvoidingView, Platform, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, endpoints } from '../../configs/Apis';
 import { Colors as C, approvalStyles as s } from './Styles';
 import { Ionicons } from '@expo/vector-icons';
+import usePagination from '../../hooks/usePagination';
+import Paginator from '../../components/Paginator';
 
 // ─── Rejection Modal (ĐB ĐÃ SỬA CHỐNG BÀN PHÍM CHE KHUẤT) ─────────────────────
 const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
@@ -19,10 +21,7 @@ const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
  
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <View style={s.overlay}>
                     <View style={s.modalCard}>
                         <View style={s.modalHeader}>
@@ -71,11 +70,14 @@ const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
 const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoading }) => {
     if (!job) return null;
  
-    const InfoRow = ({ label, value }) => (
+    const InfoRow = ({ icon, label, value }) => (
         value ? (
             <View style={s.infoRow}>
-                <Text style={s.infoLabel}>{label}</Text>
-                <Text style={s.infoValue}>{value}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '35%' }}>
+                    {icon}
+                    <Text style={[s.infoLabel, { marginLeft: 4 }]}>{label}</Text>
+                </View>
+                <Text style={[s.infoValue, { flex: 1 }]}>{value}</Text>
             </View>
         ) : null
     );
@@ -92,10 +94,8 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={s.detailOverlay}>
                 <View style={s.detailCard}>
-                    {/* Handle bar */}
                     <View style={s.handleBar} />
  
-                    {/* Header */}
                     <View style={s.detailHeader}>
                         <View style={{ flex: 1 }}>
                             <Text style={s.detailTitle} numberOfLines={2}>{job.title}</Text>
@@ -107,7 +107,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                     </View>
  
                     <ScrollView style={s.detailScroll} showsVerticalScrollIndicator={false}>
-                        {/* Info grid */}
                         <View style={s.infoGrid}>
                             <InfoRow 
                                 icon={<Ionicons name="location" size={14} color="#6B7280" />} 
@@ -141,7 +140,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             />
                         </View>
  
-                        {/* Skills */}
                         {job.skills?.length > 0 && (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Kỹ năng yêu cầu</Text>
@@ -155,7 +153,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             </View>
                         )}
  
-                        {/* Description */}
                         {job.description ? (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Mô tả công việc</Text>
@@ -163,7 +160,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             </View>
                         ) : null}
  
-                        {/* Requirements */}
                         {job.requirements ? (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Yêu cầu</Text>
@@ -171,7 +167,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             </View>
                         ) : null}
  
-                        {/* Benefits */}
                         {job.benefits ? (
                             <View style={s.detailSection}>
                                 <Text style={s.detailSectionTitle}>Quyền lợi</Text>
@@ -179,10 +174,16 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             </View>
                         ) : null}
  
+                        {job.status === 'rejected' && job.rejection_reason ? (
+                            <View style={s.detailSection}>
+                                <Text style={[s.detailSectionTitle, { color: C.rejected }]}>Lý do từ chối</Text>
+                                <Text style={s.detailBody}>{job.rejection_reason}</Text>
+                            </View>
+                        ) : null}
+ 
                         <View style={{ height: 24 }} />
                     </ScrollView>
  
-                    {/* Action buttons — only show for pending */}
                     {job.status === 'pending' && (
                         <View style={s.detailActions}>
                             <TouchableOpacity
@@ -190,7 +191,7 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                                 onPress={() => onReject(job)}
                                 disabled={actionLoading}
                             >
-                                <Text style={s.detailRejectBtnText}> Từ chối</Text>
+                                <Text style={s.detailRejectBtnText}>Từ chối</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[s.detailApproveBtn, actionLoading && { opacity: 0.6 }]}
@@ -199,7 +200,7 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
                             >
                                 {actionLoading
                                     ? <ActivityIndicator size="small" color="#fff" />
-                                    : <Text style={s.detailApproveBtnText}> Duyệt bài</Text>
+                                    : <Text style={s.detailApproveBtnText}>Duyệt bài</Text>
                                 }
                             </TouchableOpacity>
                         </View>
@@ -213,7 +214,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
     const isPending  = job.status === 'pending';
-    const isApproved = job.status === 'approved';
  
     const statusConfig = {
         pending:  { label: 'Chờ duyệt', color: C.pending,  bg: C.pendingBg,  bdr: C.pendingBdr },
@@ -233,7 +233,6 @@ const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
  
     return (
         <TouchableOpacity style={s.card} onPress={() => onPress(job)} activeOpacity={0.75}>
-            {/* Top row */}
             <View style={s.cardTop}>
                 <View style={s.companyLogoPlaceholder}>
                     <Text style={s.companyLogoText}>
@@ -249,22 +248,19 @@ const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
                 </View>
             </View>
  
-            {/* Meta */}
             <View style={s.cardMeta}>
-                {job.location ? <Text style={s.metaTag}><Ionicons name="location" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> {job.location}</Text> : null}
+                {job.location ? <Text style={s.metaTag}><Ionicons name="location" size={14} color="#6B7280" /> {job.location}</Text> : null}
                 {job.job_type ? (
                     <Text style={s.metaTag}>
                         {{ FT: 'Full-time', PT: 'Part-time', RE: 'Remote', FR: 'Freelance' }[job.job_type]}
                     </Text>
                 ) : null}
-                {job.deadline ? <Text style={s.metaTag}><Ionicons name="calendar" size={16} color="#3d3c3a" style={{ marginRight: 6 }} /> {job.deadline}</Text> : null}
+                {job.deadline ? <Text style={s.metaTag}><Ionicons name="calendar" size={14} color="#6B7280" /> {job.deadline}</Text> : null}
             </View>
  
-            {/* Footer */}
             <View style={s.cardFooter}>
                 <Text style={s.cardTime}>{timeAgo(job.created_at)}</Text>
  
-                {/* Quick actions for pending */}
                 {isPending && (
                     <View style={s.quickActions}>
                         <TouchableOpacity
@@ -288,7 +284,6 @@ const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
                 )}
             </View>
  
-            {/* Rejection reason */}
             {job.status === 'rejected' && job.rejection_reason ? (
                 <View style={s.rejectionNote}>
                     <Text style={s.rejectionNoteLabel}>Lý do từ chối:</Text>
@@ -309,65 +304,61 @@ const TABS = [
  
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AdminJobApproval() {
-    const [jobs, setJobs]                   = useState([]);
-    const [loading, setLoading]             = useState(true);
-    const [refreshing, setRefreshing]       = useState(false);
-    const [activeTab, setActiveTab]         = useState('pending');
-    const [selectedJob, setSelectedJob]     = useState(null);
-    const [showDetail, setShowDetail]       = useState(false);
-    const [showReject, setShowReject]       = useState(false);
-    const [rejectTarget, setRejectTarget]   = useState(null);
+    const [activeTab, setActiveTab] = useState('pending');
+    const [selectedJob, setSelectedJob] = useState(null);
+    const [showDetail, setShowDetail] = useState(false);
+    const [showReject, setShowReject] = useState(false);
+    const [rejectTarget, setRejectTarget] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
  
-    // ── Fetch ──────────────────────────────────────────────────────────────────
-    const fetchJobs = useCallback(async (isRefresh = false) => {
-        try {
-            isRefresh ? setRefreshing(true) : setLoading(true);
-            const token = await AsyncStorage.getItem('token');
-            const res = await authApi(token).get(endpoints['admin-jobs']);
-            setJobs(res.data);
-        } catch (ex) {
-            console.error('Fetch admin jobs error:', ex.message);
-            Alert.alert('Lỗi', 'Không thể tải danh sách bài đăng.');
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
+    // Xây dựng tham số lọc động gửi lên API dựa trên Tab đang chọn
+    const extraParams = activeTab !== 'all' ? `&status=${activeTab}` : '';
+
+    // Khởi tạo hệ thống quản lý phân trang (mặc định hiển thị 10 bài viết / trang)
+    const { data: jobs, setData: setJobs, loading, refreshing, page, totalPages, count, load, refresh } =
+        usePagination(endpoints['admin-jobs'], 10, extraParams);
  
-    useEffect(() => { fetchJobs(); }, [fetchJobs]);
+    // Kích hoạt load lại dữ liệu trang 1 khi chuyển đổi Tab lọc trạng thái
+    useEffect(() => {
+        load(1);
+    }, [activeTab]);
  
-    // ── Approve ────────────────────────────────────────────────────────────────
+    // Approve 
     const handleApprove = useCallback(async (job) => {
         try {
             setActionLoading(job.id);
             const token = await AsyncStorage.getItem('token');
             await authApi(token).patch(endpoints['admin-job-approve'](job.id));
+            
+            // Cập nhật trạng thái trực tiếp trên danh sách hiện tại
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'approved' } : j));
             if (showDetail) setSelectedJob(prev => prev ? { ...prev, status: 'approved' } : prev);
-            Alert.alert('✓ Đã duyệt', `Bài đăng "${job.title}" đã được duyệt và hiển thị trên app.`);
+            
+            Alert.alert('✓ Đã duyệt', `Bài đăng "${job.title}" đã được duyệt.`);
+            refresh(); // Làm mới số đếm dữ liệu tổng
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể duyệt bài đăng.';
             Alert.alert('Lỗi', msg);
         } finally {
             setActionLoading(null);
         }
-    }, [showDetail]);
+    }, [showDetail, refresh]);
  
-    // ── Open reject modal ──────────────────────────────────────────────────────
+    // Open reject modal 
     const handleOpenReject = useCallback((job) => {
         setRejectTarget(job);
         setShowDetail(false);
         setShowReject(true);
     }, []);
  
-    // ── Confirm reject ─────────────────────────────────────────────────────────
+    // Confirm reject 
     const handleConfirmReject = useCallback(async (reason) => {
         if (!rejectTarget) return;
         try {
             setActionLoading('modal');
             const token = await AsyncStorage.getItem('token');
             await authApi(token).patch(endpoints['admin-job-reject'](rejectTarget.id), { reason });
+            
             setJobs(prev => prev.map(j =>
                 j.id === rejectTarget.id
                     ? { ...j, status: 'rejected', rejection_reason: reason }
@@ -376,18 +367,14 @@ export default function AdminJobApproval() {
             setShowReject(false);
             setRejectTarget(null);
             Alert.alert('Đã từ chối', `Bài đăng "${rejectTarget.title}" đã bị từ chối.`);
+            refresh(); // Đọc lại dữ liệu để đồng bộ badge đếm số lượng bài đăng
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể từ chối bài đăng.';
             Alert.alert('Lỗi', msg);
         } finally {
             setActionLoading(null);
         }
-    }, [rejectTarget]);
- 
-    // ── Filtered list ──────────────────────────────────────────────────────────
-    const filtered = activeTab === 'all' ? jobs : jobs.filter(j => j.status === activeTab);
- 
-    const countByStatus = (st) => jobs.filter(j => j.status === st).length;
+    }, [rejectTarget, refresh]);
  
     // ── Empty state ────────────────────────────────────────────────────────────
     const EmptyState = () => (
@@ -404,20 +391,9 @@ export default function AdminJobApproval() {
                 {activeTab === 'pending' ? 'Không có bài chờ duyệt' :
                  activeTab === 'approved' ? 'Chưa có bài được duyệt' : 'Chưa có bài từ chối'}
             </Text>
-            <Text style={s.emptyDesc}>
-                {activeTab === 'pending' ? 'Tất cả bài đăng đã được xử lý.' : 'Danh sách trống.'}
-            </Text>
+            <Text style={s.emptyDesc}>Tất cả bài đăng ở mục này đã được xử lý xong.</Text>
         </View>
     );
- 
-    if (loading) {
-        return (
-            <View style={s.centered}>
-                <ActivityIndicator size="large" color={C.accent} />
-                <Text style={[s.emptyDesc, { marginTop: 12 }]}>Đang tải danh sách bài đăng...</Text>
-            </View>
-        );
-    }
  
     return (
         <SafeAreaView style={s.root}>
@@ -426,68 +402,69 @@ export default function AdminJobApproval() {
                 <View>
                     <Text style={s.headerTitle}>Duyệt bài đăng</Text>
                     <Text style={s.headerSub}>
-                        {countByStatus('pending')} bài đang chờ duyệt
+                        {activeTab === 'pending' ? `${count} bài đang chờ duyệt` : `Tìm thấy ${count} bài đăng`}
                     </Text>
                 </View>
-                <TouchableOpacity style={s.refreshBtn} onPress={() => fetchJobs(true)}>
+                <TouchableOpacity style={s.refreshBtn} onPress={refresh}>
                     <Text style={s.refreshBtnText}>↻</Text>
                 </TouchableOpacity>
             </View>
  
             {/* ── Filter Tabs ── */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={s.tabScroll}
-                contentContainerStyle={s.tabContainer}
-            >
-                {TABS.map(tab => {
-                    const count = tab.key === 'all' ? jobs.length : countByStatus(tab.key);
-                    const isActive = activeTab === tab.key;
-                    return (
-                        <TouchableOpacity
-                            key={tab.key}
-                            style={[s.tab, isActive && { borderBottomColor: tab.color, borderBottomWidth: 2 }]}
-                            onPress={() => setActiveTab(tab.key)}
-                        >
-                            <Text style={[s.tabText, isActive && { color: tab.color, fontWeight: '600' }]}>
-                                {tab.label}
-                            </Text>
-                            {count > 0 && (
-                                <View style={[s.tabBadge, { backgroundColor: isActive ? tab.color : C.border }]}>
-                                    <Text style={[s.tabBadgeText, { color: isActive ? '#fff' : C.textSec }]}>
-                                        {count}
-                                    </Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
-            </ScrollView>
+            <View style={{ maxHeight: 50 }}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={s.tabScroll}
+                    contentContainerStyle={s.tabContainer}
+                >
+                    {TABS.map(tab => {
+                        const isActive = activeTab === tab.key;
+                        return (
+                            <TouchableOpacity
+                                key={tab.key}
+                                style={[s.tab, isActive && { borderBottomColor: tab.color, borderBottomWidth: 2 }]}
+                                onPress={() => setActiveTab(tab.key)}
+                            >
+                                <Text style={[s.tabText, isActive && { color: tab.color, fontWeight: '600' }]}>
+                                    {tab.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+            </View>
  
-            {/* ── List ── */}
-            <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={s.listContent}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={() => fetchJobs(true)} />
-                }
-            >
-                {filtered.length === 0 ? <EmptyState /> : (
-                    filtered.map(job => (
+            {/* ── List Bài Đăng Tối Ưu Với FlatList ── */}
+            {loading && !refreshing ? (
+                <View style={s.centered}>
+                    <ActivityIndicator size="large" color={C.accent} />
+                    <Text style={[s.emptyDesc, { marginTop: 12 }]}>Đang tải danh sách bài đăng...</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={jobs}
+                    keyExtractor={item => item.id.toString()}
+                    renderItem={({ item }) => (
                         <JobCard
-                            key={job.id}
-                            job={job}
+                            job={item}
                             onPress={(j) => { setSelectedJob(j); setShowDetail(true); }}
                             onApprove={handleApprove}
                             onReject={handleOpenReject}
                             actionLoading={actionLoading}
                         />
-                    ))
-                )}
-                <View style={{ height: 32 }} />
-            </ScrollView>
+                    )}
+                    contentContainerStyle={s.listContent}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />
+                    }
+                    ListEmptyComponent={<EmptyState />}
+                    ListFooterComponent={<View style={{ height: 16 }} />}
+                />
+            )}
+
+            {/* Thanh hiển thị phân trang dưới đáy màn hình */}
+            <Paginator page={page} totalPages={totalPages} onGoTo={load} />
  
             {/* ── Detail Modal ── */}
             <JobDetailModal

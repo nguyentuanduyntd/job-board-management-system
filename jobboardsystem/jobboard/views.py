@@ -22,16 +22,16 @@ import stripe
 from django.conf import settings
 from datetime import timedelta
 from .models import (
-    Company, JobCategory, Skill, Job, Package,
+    Company, JobCategory, Skill, Job, Package, 
     Application, CandidateProfile, EmployerProfile, JobComparison, Payment
 )
 from .paginators import MyPaginator
 from .serializers import (
-    RegisterSerializer, UserSerializer,
+    RegisterSerializer, UserSerializer, InterviewScheduleSerializer,
     CompanySerializer, JobCategorySerializer, SkillSerializer,
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer, PackageSerializer,
-    AdminJobSerializer,
+    AdminJobSerializer, 
     CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
     JobComparisonSerializer, PaymentSerializer, JobCompareItemSerializer
 )
@@ -184,13 +184,16 @@ class JobViewSet(viewsets.ModelViewSet):
     def my_jobs(self, request):
         jobs = Job.objects.filter(
             company__owner=request.user
-        ).select_related('company','category')\
-        .prefetch_related('skills')\
+        ).select_related('company', 'category') \
+        .prefetch_related('skills') \
         .order_by('-created_at')
 
-        return Response(JobDetailSerializer(
-            jobs, many=True, context={'request': request}
-        ).data)
+        page = self.paginate_queryset(jobs)
+        if page is not None:
+            serializer = JobDetailSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        return Response(JobDetailSerializer(jobs, many=True, context={'request': request}).data)
 
 class JobComparisonViewSet(viewsets.ModelViewSet):
     serializer_class = JobComparisonSerializer
@@ -303,29 +306,31 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     pagination_class = MyPaginator
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['status', 'job__category']
+    filterset_fields = ['status', 'job__category', 'job']
 
     def get_queryset(self):
         user = self.request.user
 
-        
-        Application.objects.filter(
-            is_priority=True,
-            priority_expired_at__lte=timezone.now()
-        ).update(is_priority=False, priority_level=0)
+        # CHỈ cập nhật hết hạn VIP khi gọi danh sách tổng quát (hành động list), tránh lặp lại ở detail/patch
+        if self.action == 'list':
+            Application.objects.filter(
+                is_priority=True,
+                priority_expired_at__lte=timezone.now()
+            ).update(is_priority=False, priority_level=0)
 
         if user.role == 'candidate':
             return Application.objects.filter(candidate=user).select_related('job')
         if user.role == 'employer':
             return Application.objects.filter(
                 job__company__owner=user
-            ).select_related('candidate', 'job')
-        return Application.objects.all()  # admin xem tất cả
+            ).select_related('candidate', 'job__company') # Tối ưu select_related cho luồng accepted_list
+            
+        return Application.objects.all()  # Admin hệ thống xem toàn bộ
 
     def get_permissions(self):
         if self.action == 'create':
             return [IsCandidate()]
-        if self.action == 'update_status':
+        if self.action in ['update_status', 'add_note', 'schedule_interview', 'accepted_list']:
             return [IsEmployer()]
         return [permissions.IsAuthenticated()]
 
@@ -339,22 +344,22 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 {'error': 'Bạn không có quyền rút đơn này.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        if app.status in ['ACCEPTED','REVIEWING']:
+        if app.status in ['ACCEPTED', 'REVIEWING']:
             return Response(
-                {'error':'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận'},
+                {'error': 'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         return super().destroy(request, *args, **kwargs)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsEmployer],
-            url_path='update-status')
+    @action(detail=True, methods=['patch'], url_path='update-status')
     def update_status(self, request, pk=None):
         app = self.get_object()
         if app.job.company.owner != request.user:
             return Response(
-                {'error':'Bạn không có quyền cập nhật đơn này!'},
+                {'error': 'Bạn không có quyền cập nhật đơn này!'},
                 status=status.HTTP_403_FORBIDDEN
             )
+            
         new_status = request.data.get('status')
         valid_statuses = ['PENDING', 'REVIEWING', 'ACCEPTED', 'REJECTED']
         if new_status not in valid_statuses:
@@ -363,25 +368,87 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        if new_status == 'ACCEPTED':
+            accepted_count = Application.objects.filter(
+                job=app.job,
+                status='ACCEPTED'
+            ).exclude(pk=app.pk).count() 
+
+            if accepted_count >= app.job.quantity:
+                return Response(
+                    {
+                        'error': f'Vị trí này chỉ tuyển {app.job.quantity} người. Đã chấp nhận đủ số lượng.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )    
+
         app.status = new_status
         app.save()
         return Response(self.get_serializer(app).data)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsEmployer], url_path='add-note')
+    @action(detail=True, methods=['patch'], url_path='add-note')
     def add_note(self, request, pk=None):
         app = self.get_object()
         if app.job.company.owner != request.user:
-            return Response({'error': 'Bạn không có quyền!'}, status=403)
+            return Response({'error': 'Bạn không có quyền!'}, status=status.HTTP_403_FORBIDDEN)
 
-        note = request.data.get('employer_note','').strip()
-
+        note = request.data.get('employer_note', '').strip()
         app.employer_note = note if note else None
         app.save()
         return Response({
-            'message': 'Đã lưu ghi chú.',
+            'message': 'Đã lưu ghi chú nội bộ thành công.',
             'employer_note': app.employer_note
         })
 
+    @action(detail=True, methods=['patch'], url_path='schedule-interview')
+    def schedule_interview(self, request, pk=None):
+        app = self.get_object()
+
+        if app.job.company.owner != request.user:
+            return Response(
+                {'error': 'Bạn không có quyền thao tác đơn này.'},
+                status=status.HTTP_403_FORBIDDEN    
+            )
+        if app.status != 'ACCEPTED':
+            return Response(
+                {'error': 'Chỉ có thể lên lịch phỏng vấn cho đơn ứng tuyển đã được chấp nhận (ACCEPTED).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )  
+          
+        serializer = InterviewScheduleSerializer(
+            app, data=request.data, partial=True, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        
+        # Lưu thông tin form hẹn lịch phỏng vấn xuống Database trước
+        serializer.save(interview_notified=False)
+
+        # SỬA ĐỔI CHÍNH: Nhận cờ kiểm tra từ nút Switch trên React Native gửi lên
+        send_email_requested = request.data.get('send_email', True)
+
+        if send_email_requested:
+            # Chỉ đẩy vào hàng đợi bất đồng bộ Celery khi Employer tích chọn mở thông báo
+            from .tasks import send_interview_email_task
+            send_interview_email_task.delay(app.id)
+
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='accepted')
+    def accepted_list(self, request):
+        # Lọc danh sách ứng viên đã được duyệt và tối ưu hóa câu lệnh SQL truy vấn thông qua n+1 select_related
+        apps = Application.objects.filter(
+            job__company__owner=request.user,
+            status='ACCEPTED',
+        ).select_related('candidate', 'job__company').order_by('-created_at')  
+
+        page = self.paginate_queryset(apps)
+        if page is not None:
+            # Hãy đảm bảo InterviewScheduleSerializer trả về đúng thông tin candidate dạng object để React Native render tên
+            serializer = InterviewScheduleSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = InterviewScheduleSerializer(apps, many=True)
+        return Response(serializer.data) 
 
 # CATEGORY & SKILL
 class JobCategoryListView(generics.ListAPIView):
@@ -394,7 +461,6 @@ class SkillListView(generics.ListAPIView):
     queryset = Skill.objects.filter(is_active=True)
     serializer_class = SkillSerializer
     permission_classes = [permissions.AllowAny]
-
 
 # PROFILES
 class CandidateProfileView(generics.RetrieveUpdateAPIView):
@@ -420,9 +486,9 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
 
 class AdminEmployerViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
+    pagination_class = MyPaginator
 
-    # Định nghĩa cấu trúc Queryset gốc: Ép quét sâu Database ngay từ đầu bằng _base_manager
-    # Điều này giúp hàm self.get_queryset() và self.get_object() mặc định của DRF không bị lỗi chặn ngầm hoặc lỗi 404
+
     def get_queryset(self):
         return EmployerProfile._base_manager.select_related('user', 'company').order_by('-id')
 
@@ -431,17 +497,35 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
             return EmployerVerifySerializer
         return EmployerProfileAdminSerializer
 
-    # GET /admin-api/employers/ -> Lấy tất cả (Giống như bên AdminJobViewSet)
     def list(self, request):
         queryset = self.get_queryset()
+        status_filter = request.query_params.get('status')
+        
+        # Lọc dữ liệu trực tiếp từ Database trước khi phân trang
+        if status_filter == 'pending':
+            queryset = queryset.filter(user__is_active=False, is_rejected=False)
+        elif status_filter == 'approved':
+            queryset = queryset.filter(is_verified=True)
+        elif status_filter == 'rejected':
+            queryset = queryset.filter(is_rejected=True)
+
+        # Tiến hành phân trang dữ liệu đã lọc
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     # GET /admin-api/employers/pending/ - Lấy danh sách chờ duyệt
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
-        # Kế thừa từ get_queryset() gốc và lọc ra những tài khoản có user đang bị khóa
-        queryset = self.get_queryset().filter(user__is_active=False)
+        queryset = self.get_queryset().filter(user__is_active=False, is_rejected=False)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -482,18 +566,36 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
 class AdminJobViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
     serializer_class = AdminJobSerializer
+    pagination_class = MyPaginator
 
     def get_queryset(self):
         return Job.objects.select_related('company', 'category').order_by('-created_at')
 
     def list(self, request):
         queryset = self.get_queryset()
+        status_filter = request.query_params.get('status')
+        
+        if status_filter in ['pending', 'approved', 'rejected']:
+            queryset = queryset.filter(status=status_filter)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # Fallback nếu không có phân trang
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
         queryset = self.get_queryset().filter(status='pending')
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
