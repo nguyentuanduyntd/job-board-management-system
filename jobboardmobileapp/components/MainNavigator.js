@@ -127,7 +127,7 @@ function CandidateTab() {
                 const icons = {
                     'Trang chủ': 'home',
                     'Tài khoản': 'person',
-                    ...(user && {'Hồ sơ': 'document-text', 'Lịch sử': 'time-outline'}),
+                    ...(user && {'Lịch sử': 'time-outline'}),
                 };
                 return <Ionicons name={icons[route.name]} size={size} color={color} />;
             },
@@ -136,7 +136,6 @@ function CandidateTab() {
             headerShown: false,
         })}>
             <Tab.Screen name="Trang chủ" component={HomeStack} />
-            {user && <Tab.Screen name="Hồ sơ" component={PlaceholderScreen('Hồ sơ')} />}
             {user && <Tab.Screen name="Lịch sử" component={HistoryStack} />}
             <Tab.Screen name="Tài khoản" component={AccountStack} />
         </Tab.Navigator>

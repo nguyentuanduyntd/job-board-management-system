@@ -54,16 +54,11 @@ const Login = () => {
                 headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
             });
 
-            // 1. Lưu token vào bộ nhớ máy để các API sau này bóc tách sử dụng
+            //Lưu token vào bộ nhớ máy để các API sau này bóc tách sử dụng
             await AsyncStorage.setItem("token", res.data.access_token);
             
-            // 2. Lấy dữ liệu Profile chi tiết từ Backend
+            //lấy dữ liệu Profile chi tiết từ Backend
             const userData = await fetchProfile(res.data.access_token);
-
-            // Điều hướng theo role
-            // if (userData.role === "admin")         nav.navigate("AdminHome");
-            // else if (userData.role === "employer") nav.navigate("EmployerHome");
-            // else                                   nav.navigate("Trang chủ");
 
         } catch (ex) {
             const data = ex?.response?.data;

@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # ─── SERVICE 1: BROKER RABBITMQ ───
   rabbitmq:
@@ -9,45 +11,62 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  
   # ─── SERVICE 2: DJANGO WEB API ───
   web:
-    build: ./jobboardsystem  # Khớp với tên thư mục màu xanh trong ảnh
+    build: ./jobboardsystem
     container_name: jobboard_webapi
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./jobboardsystem:/app  # ĐÃ SỬA: Map đúng thư mục chứa manage.py vào container
+      - ./jobboardsystem:/app
     ports:
       - "8000:8000"
     env_file:
-      - ./jobboardsystem/.env  # ĐÃ SỬA: Tìm đúng file .env nằm trong thư mục jobboardsystem
+      - ./jobboardsystem/.env
     depends_on:
       - rabbitmq
+      - redis 
 
-  # ─── SERVICE 3: CELERY WORKER (Xử lý gửi email ngầm) ───
+  # ─── SERVICE 3: CELERY WORKER (Xử lý tác vụ ngầm) ───
   celery_worker:
-    build: ./jobboardsystem  # Khớp với tên thư mục màu xanh trong ảnh
+    build: ./jobboardsystem
     container_name: jobboard_celery
     command: celery -A jobboardsystem worker --loglevel=info
     volumes:
-      - ./jobboardsystem:/app  # ĐÃ SỬA: Map đúng thư mục chứa tác vụ Celery
+      - ./jobboardsystem:/app
     env_file:
-      - ./jobboardsystem/.env  # ĐÃ SỬA: Cung cấp file .env cho Celery đọc cấu hình SMTP
+      - ./jobboardsystem/.env
     depends_on:
       - rabbitmq
+      - redis 
       - web
 
-  # ─── SERVICE 4: FLOWER (Giao diện giám sát Celery Task) ───
+  # ─── SERVICE 4: FLOWER (Giám sát Celery) ───
   flower:
     build: ./jobboardsystem
     container_name: jobboard_flower
     command: celery -A jobboardsystem flower --port=5555
     ports:
-      - "5555:5555"   # Mở cổng 5555 ra ngoài máy thật
+      - "5555:5555"
     env_file:
       - ./jobboardsystem/.env
     depends_on:
       - rabbitmq
+      - redis 
       - web
+  
+  # ─── SERVICE 5: REDIS ───
+  redis:
+    image: redis:7.2-alpine
+    container_name: jobboard_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data 
+    command: redis-server --appendonly yes # Bật chế độ lưu dữ liệu xuống ổ đĩa tránh bị mất khi sập nguồn
+
       
 volumes:
   rabbitmq_data:
+  redis_data: 

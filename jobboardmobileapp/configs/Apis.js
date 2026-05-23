@@ -1,12 +1,13 @@
 import axios from "axios";
 
-<<<<<<< HEAD
-export const BASE_URL = 'http://192.168.1.17:8000';
-=======
-export const BASE_URL = 'http://192.168.1.176:8000';
->>>>>>> c67254b (Docker rabbit)
+// <<<<<<< HEAD
+// export const BASE_URL = 'http://192.168.1.17:8000';
+// =======
+// export const BASE_URL = 'http://192.168.1.176:8000';
+// >>>>>>> c67254b (Docker rabbit)
 
-export const endpoints = {
+export const BASE_URL = 'http://192.168.1.23:8000';
+export const endpoints = {      
     // Auth
     'register': '/auth/register/',
     'login' : '/auth/login/',

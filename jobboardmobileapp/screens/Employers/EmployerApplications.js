@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Linking, ScrollView
+    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Linking, ScrollView,
+    KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
-import { authApi, endpoints } from '../../configs/Apis';
+import api, { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles'; 
 import { Ionicons } from '@expo/vector-icons';
 
@@ -77,7 +78,6 @@ export default function EmployerApplication() {
     const handleEvaluate = async (newStatus) => {
         if (!selectedApp) return;
 
-        // Chặn UI: Không cho ACCEPTED nếu job tương ứng của đơn này đã đầy chỉ tiêu trước đó
         if (newStatus === 'ACCEPTED') {
             const currentAccepted = Number(selectedApp.job?.accepted_count || 0);
             const targetQuantity = Number(selectedApp.job?.quantity || 1);
@@ -164,6 +164,7 @@ export default function EmployerApplication() {
 
     return (
         <SafeAreaView style={styles.root}>
+            {/* Header và Bộ lọc giữ nguyên */}
             <View style={styles.header}>
                 <View>
                     <Text style={styles.headerTitle}>Đơn ứng tuyển</Text>
@@ -204,77 +205,87 @@ export default function EmployerApplication() {
             )}
 
             <Modal visible={!!selectedApp} animationType="slide" transparent={true}>
-                <View style={styles.interview.modalOverlay}>
-                    <View style={styles.interview.modalSheet}>
-                        <View style={styles.interview.handleBar} />
-                        <Text style={styles.interview.modalTitle}>Đánh giá ứng viên</Text>
-                        
-                        {selectedApp && (
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                <Text style={styles.modalRow}>
-                                    Ứng viên: <Text style={styles.modalValue}>{selectedApp.candidate?.username}</Text>
-                                </Text>
-                                <Text style={styles.modalJob}>Công việc: {selectedApp.job?.title}</Text>
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
+                >
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                        <View style={[styles.interview.modalOverlay, { justifyContent: 'flex-end' }]}>
+                            <View style={[styles.interview.modalSheet, { maxHeight: '85%' }]}>
+                                <View style={styles.interview.handleBar} />
+                                <Text style={styles.interview.modalTitle}>Đánh giá ứng viên</Text>
                                 
-                                <TouchableOpacity 
-                                    style={styles.cvBtn}
-                                    onPress={() => {
-                                        const url = selectedApp.cv_file_url || selectedApp.candidate?.profile?.cv_file_url;
-                                        if (!url) {
-                                            Alert.alert("Thông báo", "Ứng viên chưa đính kèm CV");
-                                            return;
-                                        }
-                                        Linking.openURL(url);
-                                    }}
-                                >
-                                    <Text style={styles.cvBtnText}>📥 Mở CV đính kèm</Text>
-                                </TouchableOpacity>
-
-                                <Text style={styles.noteLabel}>Ghi chú nội bộ (Chỉ bạn thấy):</Text>
-                                <TextInput
-                                    style={styles.noteInput}
-                                    placeholder="Ghi chú về ứng viên..."
-                                    placeholderTextColor={Colors.textMuted}
-                                    multiline
-                                    value={note}
-                                    onChangeText={setNote}
-                                />
-
-                                <Text style={styles.decisionLabel}>Quyết định trạng thái:</Text>
-                                <View style={styles.decisionRow}>
-                                    <TouchableOpacity 
-                                        style={[styles.btnAction, { backgroundColor: Colors.yellow }]} 
-                                        onPress={() => handleEvaluate('REVIEWING')} disabled={processing}
+                                {selectedApp && (
+                                    <ScrollView 
+                                        showsVerticalScrollIndicator={false}
+                                        keyboardShouldPersistTaps="handled"
                                     >
-                                        <Text style={styles.btnActionText}>XEM XÉT</Text>
-                                    </TouchableOpacity>
-                                    
-                                    <TouchableOpacity 
-                                        style={[styles.btnAction, { backgroundColor: Colors.green }]} 
-                                        onPress={() => handleEvaluate('ACCEPTED')} disabled={processing}
-                                    >
-                                        <Text style={styles.btnActionText}>DUYỆT</Text>
-                                    </TouchableOpacity>
-                                    
-                                    <TouchableOpacity 
-                                        style={[styles.btnAction, { backgroundColor: Colors.red }]} 
-                                        onPress={() => handleEvaluate('REJECTED')} disabled={processing}
-                                    >
-                                        <Text style={styles.btnActionText}>TỪ CHỐI</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                        <Text style={styles.modalRow}>
+                                            Ứng viên: <Text style={styles.modalValue}>{selectedApp.candidate?.username}</Text>
+                                        </Text>
+                                        <Text style={styles.modalJob}>Công việc: {selectedApp.job?.title}</Text>
+                                        
+                                        <TouchableOpacity 
+                                            style={styles.cvBtn}
+                                            onPress={() => {
+                                                const url = selectedApp.cv_file_url || selectedApp.candidate?.profile?.cv_file_url;
+                                                if (!url) {
+                                                    Alert.alert("Thông báo", "Ứng viên chưa đính kèm CV");
+                                                    return;
+                                                }
+                                                Linking.openURL(url);
+                                            }}
+                                        >
+                                            <Text style={styles.cvBtnText}>📥 Mở CV đính kèm</Text>
+                                        </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={styles.btnClose} 
-                                    onPress={() => setSelectedApp(null)} 
-                                    disabled={processing}
-                                >
-                                    <Text style={styles.btnCloseText}>ĐÓNG</Text>
-                                </TouchableOpacity>
-                            </ScrollView>
-                        )}
-                    </View>
-                </View>
+                                        <Text style={styles.noteLabel}>Ghi chú nội bộ (Chỉ bạn thấy):</Text>
+                                        <TextInput
+                                            style={styles.noteInput}
+                                            placeholder="Ghi chú về ứng viên..."
+                                            placeholderTextColor={Colors.textMuted}
+                                            multiline
+                                            value={note}
+                                            onChangeText={setNote}
+                                        />
+
+                                        <Text style={styles.decisionLabel}>Quyết định trạng thái:</Text>
+                                        <View style={styles.decisionRow}>
+                                            <TouchableOpacity 
+                                                style={[styles.btnAction, { backgroundColor: Colors.yellow }]} 
+                                                onPress={() => handleEvaluate('REVIEWING')} disabled={processing}
+                                            >
+                                                <Text style={styles.btnActionText}>XEM XÉT</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <TouchableOpacity 
+                                                style={[styles.btnAction, { backgroundColor: Colors.green }]} 
+                                                onPress={() => handleEvaluate('ACCEPTED')} disabled={processing}
+                                            >
+                                                <Text style={styles.btnActionText}>DUYỆT</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <TouchableOpacity 
+                                                style={[styles.btnAction, { backgroundColor: Colors.red }]} 
+                                                onPress={() => handleEvaluate('REJECTED')} disabled={processing}
+                                            >
+                                                <Text style={styles.btnActionText}>TỪ CHỐI</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <TouchableOpacity 
+                                            style={styles.btnClose} 
+                                            onPress={() => setSelectedApp(null)} 
+                                            disabled={processing}
+                                        >
+                                            <Text style={styles.btnCloseText}>ĐÓNG</Text>
+                                        </TouchableOpacity>
+                                    </ScrollView>
+                                )}
+                            </View>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
             </Modal>
         </SafeAreaView>
     );

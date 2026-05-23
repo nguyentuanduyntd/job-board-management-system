@@ -12,6 +12,7 @@ from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django.db.models import Count, Sum, Q, Avg
 import requests
 from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django.views.decorators.csrf import csrf_exempt
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
@@ -21,8 +22,10 @@ from oauth2_provider.models import AccessToken
 import stripe
 from django.conf import settings
 from datetime import timedelta
+from django.core.cache import cache
+
 from .models import (
-    Company, JobCategory, Skill, Job, Package, 
+    Company, JobCategory, Skill, Job, Package,
     Application, CandidateProfile, EmployerProfile, JobComparison, Payment
 )
 from .paginators import MyPaginator
@@ -31,25 +34,20 @@ from .serializers import (
     CompanySerializer, JobCategorySerializer, SkillSerializer,
     JobListSerializer, JobDetailSerializer,
     ApplicationSerializer, PackageSerializer,
-    AdminJobSerializer, 
+    AdminJobSerializer,
     CandidateProfileSerializer, EmployerProfileSerializer, EmployerVerifySerializer, EmployerProfileAdminSerializer,
     JobComparisonSerializer, PaymentSerializer, JobCompareItemSerializer
 )
 from .permissions import IsEmployer, IsCandidate, IsAdmin, IsOwnerOrReadOnly, IsVerifiedEmployer
-from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from .models import EmployerProfile
-from .serializers import EmployerProfileAdminSerializer, EmployerVerifySerializer
-from .permissions import IsAdmin  # Hoặc permissions.IsAdminUser tùy cấu hình của bạn
 
 User = get_user_model()
-
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
-# custom throttle class cho login và register
+
+# Custom throttle class cho login và register
 class LoginRateThrottle(AnonRateThrottle):
     scope = 'login'
+
 
 class RegisterRateThrottle(AnonRateThrottle):
     scope = 'register'
@@ -57,13 +55,12 @@ class RegisterRateThrottle(AnonRateThrottle):
 
 # AUTH
 class RegisterView(generics.CreateAPIView):
-    #POST /api/auth/register/
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
     throttle_classes = [RegisterRateThrottle]
 
+
 class ProfileView(generics.RetrieveUpdateAPIView):
-    #GET, PATCH /api/auth/profile
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'patch']
@@ -71,13 +68,14 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+
 class ChangePasswordView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request):
         user = request.user
-        old_password     = request.data.get("old_password")
-        new_password     = request.data.get("new_password")
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
         confirm_password = request.data.get("confirm_password")
 
         if not all([old_password, new_password, confirm_password]):
@@ -95,20 +93,18 @@ class ChangePasswordView(generics.GenericAPIView):
         user.save()
         return Response({"message": "Đổi mật khẩu thành công!"})
 
+
 # COMPANY
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.filter(is_active=True)
     serializer_class = CompanySerializer
-
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {
-        'name': ['icontains'],
-    }
+    filterset_fields = {'name': ['icontains']}
 
     def get_permissions(self):
-        if self.action == ['create','my_companies']:
+        if self.action in ['create', 'my_companies']:
             return [IsEmployer()]
-        if self.action in ['update','partial_update','destroy']:
+        if self.action in ['update', 'partial_update', 'destroy']:
             return [IsEmployer(), IsOwnerOrReadOnly()]
         return [permissions.AllowAny()]
 
@@ -118,26 +114,27 @@ class CompanyViewSet(viewsets.ModelViewSet):
     @action(methods=['get'], detail=False, url_path='my-companies')
     def my_companies(self, request):
         companies = Company.objects.filter(is_active=True, owner=request.user)
-        
         page = self.paginate_queryset(companies)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-            
-        serializer = self.get_serializer(companies, many=True)
-        return Response(serializer.data)    
 
-# JOB
+        serializer = self.get_serializer(companies, many=True)
+        return Response(serializer.data)
+
+    # JOB
+
+
 class JobViewSet(viewsets.ModelViewSet):
-    queryset = Job.objects.filter(is_active=True, status='approved')\
-        .select_related('company','category')\
-        .prefetch_related('skills')\
-        .order_by('-featured_score','-created_at')
+    queryset = Job.objects.filter(is_active=True, status='approved') \
+        .select_related('company', 'category') \
+        .prefetch_related('skills') \
+        .order_by('-featured_score', '-created_at')
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['job_type', 'category', 'company']
     search_fields = ['title', 'description', 'location']
-    ordering_fields = ['created_at', 'salary_min', 'deadline','featured_score']
-    ordering = ['-featured_score','-created_at']
+    ordering_fields = ['created_at', 'salary_min', 'deadline', 'featured_score']
+    ordering = ['-featured_score', '-created_at']
     pagination_class = MyPaginator
 
     def get_serializer_class(self):
@@ -150,43 +147,65 @@ class JobViewSet(viewsets.ModelViewSet):
             return [IsVerifiedEmployer()]
         return [permissions.AllowAny()]
 
+    # cache: đọc danh sách job từ redis ram trước khi quét DB
+    def list(self, request, *args, **kwargs):
+        page = request.query_params.get('page', '1')
+        job_type = request.query_params.get('job_type', '')
+        category = request.query_params.get('category', '')
+        company = request.query_params.get('company', '')
+        search = request.query_params.get('search', '')
+        ordering = request.query_params.get('ordering', '')
+
+        # Tạo khóa Cache động theo bộ lọc của react native gửi
+        cache_key = f"jobs_list_p{page}_t{job_type}_c{category}_co{company}_s{search}_o{ordering}"
+
+        cached_jobs = cache.get(cache_key)
+        if cached_jobs:
+            return Response(cached_jobs)
+
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300)  # Cache trong 5 phút
+        return response
+
+    def perform_create(self, serializer):
+        serializer.save()
+        cache.clear()  # Xóa sạch cache khi có bài đăng mới để cập nhật lên app
+
     def perform_update(self, serializer):
         job = self.get_object()
         if job.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền sửa job này.')
         serializer.save()
+        cache.clear()
 
     def perform_destroy(self, instance):
         if instance.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền xóa job này!')
         instance.is_active = False
         instance.save()
+        cache.clear()
 
     @action(detail=True, methods=['get'], permission_classes=[IsEmployer], url_path='applications')
     def applications(self, request, pk=None):
-        """GET /api/jobs/{id}/applications/ - Employer xem danh sách ứng viên"""
         job = self.get_object()
         if job.company.owner != request.user:
             return Response({'error': 'Bạn không có quyền xem.'}, status=403)
-        apps = job.applications.select_related('candidate__profile')\
-                                .prefetch_related('candidate__profile__skills')
+        apps = job.applications.select_related('candidate__profile') \
+            .prefetch_related('candidate__profile__skills')
         status_filter = request.query_params.get('status')
         if status_filter:
             apps = apps.filter(status=status_filter)
-        apps = apps.order_by('-priority_level','-created_at')
+        apps = apps.order_by('-priority_level', '-created_at')
 
-        return Response(
-            ApplicationSerializer(
-                apps, many=True, context={'request': request}
-            ).data)
+        return Response(ApplicationSerializer(apps, many=True, context={'request': request}).data)
 
     @action(detail=False, methods=['get'], url_path='my-jobs', permission_classes=[IsVerifiedEmployer])
     def my_jobs(self, request):
         jobs = Job.objects.filter(
             company__owner=request.user
         ).select_related('company', 'category') \
-        .prefetch_related('skills') \
-        .order_by('-created_at')
+            .prefetch_related('skills') \
+            .order_by('-created_at')
 
         page = self.paginate_queryset(jobs)
         if page is not None:
@@ -194,6 +213,7 @@ class JobViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         return Response(JobDetailSerializer(jobs, many=True, context={'request': request}).data)
+
 
 class JobComparisonViewSet(viewsets.ModelViewSet):
     serializer_class = JobComparisonSerializer
@@ -203,7 +223,7 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return JobComparison.objects.filter(
             candidate=self.request.user
-        ).prefetch_related('jobs__skills','jobs__company','jobs__category')
+        ).prefetch_related('jobs__skills', 'jobs__company', 'jobs__category')
 
     def perform_create(self, serializer):
         serializer.save(candidate=self.request.user)
@@ -214,15 +234,11 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
         exclude_job_id = request.query_params.get('exclude_job_id')
 
         if not category_id:
-            return Response(
-                {'error': 'Cần truyền category_id.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        jobs = Job.objects.filter(
-            category__id=category_id,
-            is_active=True
-        ).select_related('company','category')\
-        .prefetch_related('skills').order_by('-featured_score','-created_at')
+            return Response({'error': 'Cần truyền category_id.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        jobs = Job.objects.filter(category__id=category_id, is_active=True) \
+            .select_related('company', 'category') \
+            .prefetch_related('skills').order_by('-featured_score', '-created_at')
 
         if exclude_job_id:
             jobs = jobs.exclude(id=exclude_job_id)
@@ -234,31 +250,18 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
         comparison = self.get_object()
         job_id = request.data.get('job_id')
         if not job_id:
-            return Response(
-                {'error': 'Thiếu job_id'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Thiếu job_id'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             job = Job.objects.get(pk=job_id, is_active=True)
         except Job.DoesNotExist:
-            return Response(
-                {'error':'Job không tồn tại hoặc đã đóng'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        if comparison.jobs.count() >= 5:
-            return Response(
-                {'error':'Chỉ được so sánh tối đa 5 công việc'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if comparison.jobs.filter(pk=job_id).exists():
-            return Response(
-                {'error': 'Job này đã có trong danh sách so sánh'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Job không tồn tại hoặc đã đóng'}, status=status.HTTP_404_NOT_FOUND)
 
-        existing_categories = set(
-            comparison.jobs.values_list('category_id', flat=True)
-        )
+        if comparison.jobs.count() >= 5:
+            return Response({'error': 'Chỉ được so sánh tối đa 5 công việc'}, status=status.HTTP_400_BAD_REQUEST)
+        if comparison.jobs.filter(pk=job_id).exists():
+            return Response({'error': 'Job này đã có trong danh sách so sánh'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_categories = set(comparison.jobs.values_list('category_id', flat=True))
         warning = None
         if existing_categories and job.category_id not in existing_categories:
             warning = 'Job này thuộc lĩnh vực khác với các job đang so sánh.'
@@ -274,28 +277,18 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
         comparison = self.get_object()
         job_id = request.data.get('job_id')
         if not job_id:
-            return Response(
-                {'error':'Thiếu job_id'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Thiếu job_id'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             job = comparison.jobs.get(pk=job_id)
         except Job.DoesNotExist:
-            return Response(
-                {'error':'Job này không có trong danh sách so sánh'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({'error': 'Job này không có trong danh sách so sánh'}, status=status.HTTP_404_NOT_FOUND)
+
         comparison.jobs.remove(job)
 
         if comparison.jobs.count() < 2:
             comparison.delete()
-            return Response(
-                {'message':'Comparison đã bị xóa vì còn ít hơn 2 công việc!'},
-                status=status.HTTP_200_OK
-            )
-        return Response(
-            JobComparisonSerializer(comparison, context={'request': request}).data
-        )
+            return Response({'message': 'Comparison đã bị xóa vì còn ít hơn 2 công việc!'}, status=status.HTTP_200_OK)
+        return Response(JobComparisonSerializer(comparison, context={'request': request}).data)
 
 
 # APPLICATION
@@ -303,7 +296,6 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ['get', 'post', 'patch', 'delete']
-
     pagination_class = MyPaginator
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['status', 'job__category', 'job']
@@ -311,21 +303,27 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # CHỈ cập nhật hết hạn VIP khi gọi danh sách tổng quát (hành động list), tránh lặp lại ở detail/patch
         if self.action == 'list':
-            Application.objects.filter(
-                is_priority=True,
-                priority_expired_at__lte=timezone.now()
-            ).update(is_priority=False, priority_level=0)
+            try:
+                # lọc những đơn thực sự là priority và có expired khác Null
+                Application.objects.filter(
+                    is_priority=True,
+                    priority_expired_at__isnull=False,
+                    priority_expired_at__lte=timezone.now()
+                ).update(is_priority=False, priority_level=0)
+            except Exception as e:
+                print("--- [WARNING] Lỗi quét hạn định VIP ứng tuyển: ", str(e))
 
+        #phân quyền trả về dữ liệu chuẩn SQL
         if user.role == 'candidate':
             return Application.objects.filter(candidate=user).select_related('job')
+
         if user.role == 'employer':
-            return Application.objects.filter(
-                job__company__owner=user
-            ).select_related('candidate', 'job__company') # Tối ưu select_related cho luồng accepted_list
-            
-        return Application.objects.all()  # Admin hệ thống xem toàn bộ
+            return Application.objects.filter(job__company__owner=user) \
+                .select_related('job', 'job__company', 'candidate') \
+                .prefetch_related('candidate__profile')
+
+        return Application.objects.all()
 
     def get_permissions(self):
         if self.action == 'create':
@@ -340,47 +338,29 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         app = self.get_object()
         if app.candidate != request.user:
-            return Response(
-                {'error': 'Bạn không có quyền rút đơn này.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({'error': 'Bạn không có quyền rút đơn này.'}, status=status.HTTP_403_FORBIDDEN)
         if app.status in ['ACCEPTED', 'REVIEWING']:
-            return Response(
-                {'error': 'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'error': 'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['patch'], url_path='update-status')
     def update_status(self, request, pk=None):
         app = self.get_object()
         if app.job.company.owner != request.user:
-            return Response(
-                {'error': 'Bạn không có quyền cập nhật đơn này!'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-            
+            return Response({'error': 'Bạn không có quyền cập nhật đơn này!'}, status=status.HTTP_403_FORBIDDEN)
+
         new_status = request.data.get('status')
         valid_statuses = ['PENDING', 'REVIEWING', 'ACCEPTED', 'REJECTED']
         if new_status not in valid_statuses:
-            return Response(
-                {'error': f'Trạng thái không hợp lệ. Chọn: {valid_statuses}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if new_status == 'ACCEPTED':
-            accepted_count = Application.objects.filter(
-                job=app.job,
-                status='ACCEPTED'
-            ).exclude(pk=app.pk).count() 
+            return Response({'error': f'Trạng thái không hợp lệ. Chọn: {valid_statuses}'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
+        if new_status == 'ACCEPTED':
+            accepted_count = Application.objects.filter(job=app.job, status='ACCEPTED').exclude(pk=app.pk).count()
             if accepted_count >= app.job.quantity:
-                return Response(
-                    {
-                        'error': f'Vị trí này chỉ tuyển {app.job.quantity} người. Đã chấp nhận đủ số lượng.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )    
+                return Response({'error': f'Vị trí này chỉ tuyển {app.job.quantity} người. Đã chấp nhận đủ số lượng.'},
+                                status=status.HTTP_400_BAD_REQUEST)
 
         app.status = new_status
         app.save()
@@ -403,31 +383,18 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='schedule-interview')
     def schedule_interview(self, request, pk=None):
         app = self.get_object()
-
         if app.job.company.owner != request.user:
-            return Response(
-                {'error': 'Bạn không có quyền thao tác đơn này.'},
-                status=status.HTTP_403_FORBIDDEN    
-            )
+            return Response({'error': 'Bạn không có quyền thao tác đơn này.'}, status=status.HTTP_403_FORBIDDEN)
         if app.status != 'ACCEPTED':
-            return Response(
-                {'error': 'Chỉ có thể lên lịch phỏng vấn cho đơn ứng tuyển đã được chấp nhận (ACCEPTED).'},
-                status=status.HTTP_400_BAD_REQUEST
-            )  
-          
-        serializer = InterviewScheduleSerializer(
-            app, data=request.data, partial=True, context={'request': request}
-        )
+            return Response({'error': 'Chỉ có thể lên lịch phỏng vấn cho đơn ứng tuyển đã được chấp nhận (ACCEPTED).'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = InterviewScheduleSerializer(app, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        
-        # Lưu thông tin form hẹn lịch phỏng vấn xuống Database trước
         serializer.save(interview_notified=False)
 
-        # SỬA ĐỔI CHÍNH: Nhận cờ kiểm tra từ nút Switch trên React Native gửi lên
         send_email_requested = request.data.get('send_email', True)
-
         if send_email_requested:
-            # Chỉ đẩy vào hàng đợi bất đồng bộ Celery khi Employer tích chọn mở thông báo
             from .tasks import send_interview_email_task
             send_interview_email_task.delay(app.id)
 
@@ -435,32 +402,43 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='accepted')
     def accepted_list(self, request):
-        # Lọc danh sách ứng viên đã được duyệt và tối ưu hóa câu lệnh SQL truy vấn thông qua n+1 select_related
         apps = Application.objects.filter(
             job__company__owner=request.user,
             status='ACCEPTED',
-        ).select_related('candidate', 'job__company').order_by('-created_at')  
+        ).select_related('candidate', 'job__company').order_by('-created_at')
 
         page = self.paginate_queryset(apps)
         if page is not None:
-            # Hãy đảm bảo InterviewScheduleSerializer trả về đúng thông tin candidate dạng object để React Native render tên
             serializer = InterviewScheduleSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
         serializer = InterviewScheduleSerializer(apps, many=True)
-        return Response(serializer.data) 
+        return Response(serializer.data)
 
-# CATEGORY & SKILL
+    # CATEGORY & SKILL
+
+
 class JobCategoryListView(generics.ListAPIView):
     queryset = JobCategory.objects.filter(is_active=True)
     serializer_class = JobCategorySerializer
     permission_classes = [permissions.AllowAny]
+
+    #xử lý cache: lưu mảng Ngành nghề tĩnh lên RAM redis 1 tiếng
+    @method_decorator(cache_page(60 * 60))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class SkillListView(generics.ListAPIView):
     queryset = Skill.objects.filter(is_active=True)
     serializer_class = SkillSerializer
     permission_classes = [permissions.AllowAny]
+
+    #xử lý cache: lưu mảng Kỹ năng tĩnh lên RAM redis 1 tiếng
+    @method_decorator(cache_page(60 * 60))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
 
 # PROFILES
 class CandidateProfileView(generics.RetrieveUpdateAPIView):
@@ -483,11 +461,9 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
         return profile
 
 
-
 class AdminEmployerViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
     pagination_class = MyPaginator
-
 
     def get_queryset(self):
         return EmployerProfile._base_manager.select_related('user', 'company').order_by('-id')
@@ -500,8 +476,7 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
     def list(self, request):
         queryset = self.get_queryset()
         status_filter = request.query_params.get('status')
-        
-        # Lọc dữ liệu trực tiếp từ Database trước khi phân trang
+
         if status_filter == 'pending':
             queryset = queryset.filter(user__is_active=False, is_rejected=False)
         elif status_filter == 'approved':
@@ -509,7 +484,6 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
         elif status_filter == 'rejected':
             queryset = queryset.filter(is_rejected=True)
 
-        # Tiến hành phân trang dữ liệu đã lọc
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -518,7 +492,6 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    # GET /admin-api/employers/pending/ - Lấy danh sách chờ duyệt
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
         queryset = self.get_queryset().filter(user__is_active=False, is_rejected=False)
@@ -529,28 +502,21 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    # PATCH /admin-api/employers/{id}/approve/ - duyệt tài khoản employerr
     @action(detail=True, methods=['patch'], url_path='approve')
     def approve(self, request, pk=None):
-        # Tự động lấy object thông qua cấu trúc chuẩn của DRF
         profile = self.get_object()
-
         if profile.is_verified:
             return Response({'error': 'Tài khoản này đã được duyệt rồi.'}, status=400)
 
-        # Cập nhật trạng thái xác minh hồ sơ
         profile.is_verified = True
         profile.is_rejected = False
         profile.save()
 
-        # Kích hoạt tài khoản User liên kết để chuyển dấu X đỏ thành V xanh
         user = profile.user
         user.is_active = True
         user.save()
-
         return Response({'message': f'Đã duyệt và kích hoạt tài khoản "{user.username}".'})
 
-    # PATCH /admin-api/employers/{id}/reject/ -> Từ chối/Khóa tài khoản
     @action(detail=True, methods=['patch'], url_path='reject')
     def reject(self, request, pk=None):
         profile = self.get_object()
@@ -563,6 +529,7 @@ class AdminEmployerViewSet(viewsets.GenericViewSet):
         user.save()
         return Response({'message': f'Đã từ chối tài khoản "{user.username}".'})
 
+
 class AdminJobViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdmin]
     serializer_class = AdminJobSerializer
@@ -574,7 +541,7 @@ class AdminJobViewSet(viewsets.GenericViewSet):
     def list(self, request):
         queryset = self.get_queryset()
         status_filter = request.query_params.get('status')
-        
+
         if status_filter in ['pending', 'approved', 'rejected']:
             queryset = queryset.filter(status=status_filter)
 
@@ -583,19 +550,17 @@ class AdminJobViewSet(viewsets.GenericViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        # Fallback nếu không có phân trang
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='pending')
     def pending(self, request):
         queryset = self.get_queryset().filter(status='pending')
-        
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-            
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -607,6 +572,7 @@ class AdminJobViewSet(viewsets.GenericViewSet):
         job.status = 'approved'
         job.rejection_reason = None
         job.save()
+        cache.clear() #clear cache trang chủ khi admin duyệt bài đăng mới
         return Response({'message': f'Đã duyệt job "{job.title}".'})
 
     @action(detail=True, methods=['patch'], url_path='reject')
@@ -620,7 +586,8 @@ class AdminJobViewSet(viewsets.GenericViewSet):
         job.save()
         return Response({'message': f'Đã từ chối job "{job.title}".'})
 
-#Package
+
+# PACKAGE
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Package.objects.all().order_by('package_type', 'level')
     serializer_class = PackageSerializer
@@ -628,13 +595,15 @@ class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['package_type']
 
+
 class StripeWebhookParser(BaseParser):
     media_type = 'application/json'
 
     def parse(self, stream, media_type=None, parser_context=None):
         return stream.read()
 
-# Payment
+
+# PAYMENT
 @method_decorator(csrf_exempt, name='dispatch')
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
@@ -650,17 +619,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if user.role == 'admin':
             return Payment.objects.all().select_related('user', 'job', 'application')
         if user.role == 'employer':
-            return Payment.objects.filter(
-                user=user,
-                payment_type='featured_job'
-            ).select_related('job')
+            return Payment.objects.filter(user=user, payment_type='featured_job').select_related('job')
         if user.role == 'candidate':
-            return Payment.objects.filter(
-                user=user,
-                payment_type='priority_application'
-            ).select_related('application')
+            return Payment.objects.filter(user=user, payment_type='priority_application').select_related('application')
         return Payment.objects.none()
-    
+
     @action(detail=False, methods=['post'], url_path='create-payment-intent')
     def create_payment_intent(self, request):
         serializer = PaymentSerializer(data=request.data, context={'request': request})
@@ -669,28 +632,26 @@ class PaymentViewSet(viewsets.ModelViewSet):
         package = validated['package']
         amount_vnd = int(package.price)
 
-        # Tạo hoặc lấy Stripe Customer theo user
         user = request.user
-        if not user.stripe_customer_id:  # thêm field này vào User model
+        if not user.stripe_customer_id:
             customer = stripe.Customer.create(email=user.email, name=user.username)
             user.stripe_customer_id = customer.id
             user.save(update_fields=['stripe_customer_id'])
 
-        # Ephemeral key cho Payment Sheet
         ephemeral_key = stripe.EphemeralKey.create(
             customer=user.stripe_customer_id,
             stripe_version='2024-06-20',
         )
 
         payment_intent = stripe.PaymentIntent.create(
-            amount=amount_vnd,           # VND là zero-decimal, không nhân 100
+            amount=amount_vnd,
             currency='vnd',
             customer=user.stripe_customer_id,
             metadata={
                 'payment_type': validated.get('payment_type'),
-                'package_id':   str(package.id),
-                'job_id':       str(validated['job'].id) if validated.get('job') else '',
-                'user_id':      str(user.id),
+                'package_id': str(package.id),
+                'job_id': str(validated['job'].id) if validated.get('job') else '',
+                'user_id': str(user.id),
             }
         )
         payment = serializer.save(
@@ -700,16 +661,16 @@ class PaymentViewSet(viewsets.ModelViewSet):
         )
         return Response({
             'payment_intent_client_secret': payment_intent.client_secret,
-            'ephemeral_key':                ephemeral_key.secret,
-            'customer_id':                  user.stripe_customer_id,
-            'payment_id':                   payment.id,
+            'ephemeral_key': ephemeral_key.secret,
+            'customer_id': user.stripe_customer_id,
+            'payment_id': payment.id,
         })
-    
+
     @action(detail=False, methods=['post'], url_path='stripe-webhook',
             permission_classes=[permissions.AllowAny],
-            parser_classes=[StripeWebhookParser]) 
+            parser_classes=[StripeWebhookParser])
     def stripe_webhook(self, request):
-        payload = request.data 
+        payload = request.body
         sig_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
 
         try:
@@ -725,7 +686,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 payment = Payment.objects.get(transaction_id=intent['id'])
                 if payment.status != 'completed':
                     payment.status = 'completed'
-                    payment.save() 
+                    payment.save()
             except Payment.DoesNotExist:
                 pass
 
@@ -736,7 +697,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return Response({'status': 'ok'})
 
 
-# Thống kê trang admin
+# STATISTICS
 class AdminStatisticsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
 
@@ -802,7 +763,6 @@ class AdminStatisticsViewSet(viewsets.ViewSet):
         })
 
 
-# Thống kê cho Employer
 class EmployerStatisticsViewSet(viewsets.ViewSet):
     permission_classes = [IsEmployer]
 
@@ -846,6 +806,7 @@ class EmployerStatisticsViewSet(viewsets.ViewSet):
         })
 
 
+# GOOGLE SOCIAL AUTH
 def get_google_user_info(google_access_token):
     try:
         info = google_id_token.verify_oauth2_token(
@@ -858,10 +819,10 @@ def get_google_user_info(google_access_token):
         print("Google token error:", e)
         return None
 
+
 def create_oauth2_token(user):
     """Tạo OAuth2 access token cho user."""
     from django.conf import settings
-    # ✅ Dùng OAuth2Application thay vì Application
     app = OAuth2Application.objects.get(client_id=settings.CLIENT_ID)
     AccessToken.objects.filter(user=user, application=app).delete()
     token = AccessToken.objects.create(
@@ -888,15 +849,9 @@ class GoogleLoginView(generics.GenericAPIView):
 
         user = User.objects.filter(email=info["email"]).first()
         if not user:
-            return Response(
-                {"error": "Email chưa đăng ký. Vui lòng đăng ký trước."},
-                status=404,
-            )
+            return Response({"error": "Email chưa đăng ký. Vui lòng đăng ký trước."}, status=404)
         if not user.is_active:
-            return Response(
-                {"error": "Tài khoản chưa được kích hoạt."},
-                status=403,
-            )
+            return Response({"error": "Tài khoản chưa được kích hoạt."}, status=403)
 
         access_token = create_oauth2_token(user)
         return Response({"access_token": access_token})
@@ -907,7 +862,7 @@ class GoogleRegisterView(generics.GenericAPIView):
 
     def post(self, request):
         google_token = request.data.get("google_token")
-        role         = request.data.get("role", "candidate")
+        role = request.data.get("role", "candidate")
 
         if not google_token:
             return Response({"error": "Thiếu google_token"}, status=400)
@@ -938,10 +893,4 @@ class GoogleRegisterView(generics.GenericAPIView):
             is_active=(role == "candidate"),
         )
 
-        return Response(
-            {
-                "message": "Đăng ký thành công!",
-                "pending": role == "employer",
-            },
-            status=201,
-        )
+        return Response({"message": "Đăng ký thành công!", "pending": role == "employer"}, status=201)

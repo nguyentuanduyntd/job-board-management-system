@@ -30,7 +30,7 @@ export const Colors = {
     rejectedBg:  '#FEF2F2',
 };
 
-const S = StyleSheet.create({
+export default StyleSheet.create({
     root:    { flex: 1, backgroundColor: Colors.bg },
     centered:{ flex: 1, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', padding: 40 },
 
@@ -91,8 +91,8 @@ const S = StyleSheet.create({
         fieldInput: { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: Colors.text },
         fieldInputMulti: { height: 80, textAlignVertical: 'top', paddingTop: 10 },
 
-        dtRow:     { flexDirection: 'row', gap: 10 },
-        dtBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.accentLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: Colors.accentBdr },
+        dtRow:      { flexDirection: 'row', gap: 10 },
+        dtBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.accentLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: Colors.accentBdr },
         dtBtnText: { color: Colors.accent, fontSize: 14, fontWeight: '600' },
 
         toggleRow:   { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.bg, borderRadius: 12, padding: 14, marginTop: 16, gap: 12 },
@@ -268,7 +268,7 @@ const S = StyleSheet.create({
     boostCancelBtn:     { paddingVertical: 12, alignItems: 'center', marginTop: 5 },
     boostCancelBtnText: { color: Colors.textSub, fontSize: 14, fontWeight: '500' },
 
-    overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+    overviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, margin: 20 },
     overviewCard: { width: (SW - PAD * 2 - 12) / 2, backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
     overviewIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
     overviewIcon:     { fontSize: 18 },
@@ -278,7 +278,7 @@ const S = StyleSheet.create({
     metaCard:      { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.border },
     metaCardTitle: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, marginBottom: 8, textTransform: 'uppercase' },
     metaBigNum:    { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
-    section:       { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
+    section:       { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: Colors.border, margin: 20 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
     sectionDot:    { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
     sectionTitle:  { fontSize: 16, fontWeight: '700', color: Colors.text },
@@ -301,6 +301,43 @@ const S = StyleSheet.create({
     pageBtnText:     { fontSize: 14, fontWeight: '600', color: Colors.text },
     pageBtnTextActive: { color: '#fff' },
     pageDots:        { fontSize: 14, color: Colors.textMuted, paddingHorizontal: 4 },
-});
 
-export default S;
+    // =========================================================================
+    // ✅ THÀNH PHẦN BỔ SUNG: Cấu hình thống kê 4 ô đồng bộ Flexbox tỉ lệ bằng nhau
+    // =========================================================================
+    unifiedStatCard: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 1.5,
+        elevation: 2,
+    },
+    unifiedIconBg: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 6,
+    },
+    unifiedValue: {
+        fontSize: 15,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    unifiedLabel: {
+        fontSize: 10,
+        color: '#6B7280',
+        fontWeight: '500',
+        textAlign: 'center',
+    },
+});

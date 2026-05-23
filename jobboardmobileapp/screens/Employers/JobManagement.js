@@ -1,36 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+    View, Text, FlatList, TouchableOpacity, ActivityIndicator, 
+    RefreshControl, Alert, Modal, ScrollView, KeyboardAvoidingView, Platform 
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput, Button, HelperText } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useStripe } from '@stripe/stripe-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker'; // Import thư viện lịch
 
 import { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles';
 import usePagination from '../../hooks/usePagination';
 import Paginator from '../../components/Paginator';
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+// CONSTANTS
 const PAGE_SIZE = 10;
 
 const FORM_FIELDS = [
-    { key: 'title',        label: 'Tiêu đề *',            keyboard: 'default' },
-    { key: 'category_id',  label: 'Danh mục *',           type: 'picker' },
-    { key: 'location',     label: 'Địa điểm',             keyboard: 'default' },
-    { key: 'salary_min',   label: 'Lương tối thiểu',      keyboard: 'numeric' },
-    { key: 'salary_max',   label: 'Lương tối đa',         keyboard: 'numeric' },
-    { key: 'quantity',     label: 'Số lượng tuyển',       keyboard: 'numeric' },
-    { key: 'deadline',     label: 'Hạn nộp (YYYY-MM-DD)', keyboard: 'default' },
-    { key: 'description',  label: 'Mô tả công việc',      multiline: true },
-    { key: 'requirements', label: 'Yêu cầu',              multiline: true },
-    { key: 'benefits',     label: 'Quyền lợi',            multiline: true },
+    { key: 'title',        label: 'Tiêu đề *',             keyboard: 'default' },
+    { key: 'company_id',   label: 'Công ty đăng tuyển *',   type: 'company_picker' },
+    { key: 'category_id',  label: 'Danh mục *',             type: 'picker' },
+    { key: 'location',     label: 'Địa điểm',               keyboard: 'default' },
+    { key: 'salary_min',   label: 'Lương tối thiểu',        keyboard: 'numeric' },
+    { key: 'salary_max',   label: 'Lương tối đa',           keyboard: 'numeric' },
+    { key: 'quantity',     label: 'Số lượng tuyển',         keyboard: 'numeric' },
+    { key: 'deadline',     label: 'Hạn nộp *',              type: 'date' }, // Chuyển sang type 'date' để tích hợp lịch
+    { key: 'description',  label: 'Mô tả công việc',        multiline: true },
+    { key: 'requirements', label: 'Yêu cầu',                multiline: true },
+    { key: 'benefits',     label: 'Quyền lợi',              multiline: true },
 ];
 
 const EMPTY_FORM = {
     title: '', description: '', requirements: '', benefits: '',
     location: '', salary_min: '', salary_max: '', quantity: '',
-    deadline: '', category_id: '',
+    deadline: '', category_id: '', company_id: '',
 };
 
 const APPROVAL_CONFIG = {
@@ -39,38 +44,53 @@ const APPROVAL_CONFIG = {
     rejected: { color: '#EF4444', bg: '#FEF2F2', text: 'Bị từ chối' },
 };
 
-// ─── JOB FORM MODAL ───────────────────────────────────────────────────────────
-const JobFormModal = ({ visible, onClose, onSuccess, editJob = null }) => {
+// ─── JOB FORM MODAL (ĐÃ TÍCH HỢP LỊCH TRỰC QUAN) ───────────────────────────────
+const JobFormModal = ({ visible, onClose, onSuccess, editJob = null, myCompanies = [] }) => {
     const [form, setForm]           = useState(EMPTY_FORM);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading]     = useState(false);
     const [err, setErr]             = useState('');
+    
+    // Trạng thái hiển thị DatePicker
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     // Tải danh mục ngành nghề từ Backend
     useEffect(() => {
         if (!visible) return;
         authApi().get(endpoints['categories'])
-            .then(res => setCategories(res.data))
+            .then(res => setCategories(res.data?.results ?? res.data))
             .catch(ex => console.error('Lỗi load danh mục:', ex));
     }, [visible]);
 
-    // Đồng bộ dữ liệu khi Sửa (Edit) hoặc Tạo mới (Create)
+    // Đồng bộ dữ liệu khi Sửa hoặc Tạo mới 
     useEffect(() => {
-        setForm(editJob ? {
-            ...editJob,
-            salary_min:  String(editJob.salary_min  ?? ''),
-            salary_max:  String(editJob.salary_max  ?? ''),
-            quantity:    String(editJob.quantity     ?? ''),
-            category_id: String(editJob.category?.id ?? ''),
-        } : EMPTY_FORM);
+        if (editJob) {
+            setForm({
+                ...editJob,
+                salary_min:  String(editJob.salary_min  ?? ''),
+                salary_max:  String(editJob.salary_max  ?? ''),
+                quantity:    String(editJob.quantity    ?? ''),
+                category_id: String(editJob.category?.id ?? ''),
+                company_id:  String(editJob.company?.id  ?? ''),
+                deadline:    editJob.deadline || '',
+            });
+        } else {
+            setForm({
+                ...EMPTY_FORM,
+                company_id: myCompanies.length > 0 ? String(myCompanies[0].id) : '',
+            });
+        }
         setErr('');
-    }, [editJob, visible, myCompanies]);
+    }, [editJob, visible, myCompanies]); 
 
     const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+    // Hàm xử lý sự kiện khi thay đổi ngày trên bảng lịch
     const onDateChange = (event, selectedDate) => {
         if (Platform.OS === 'android') setShowDatePicker(false);
+        
         if (selectedDate) {
+            // Định dạng ngày thành chuỗi YYYY-MM-DD chuẩn để gửi lên Backend Django
             const yyyy = selectedDate.getFullYear();
             const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const dd = String(selectedDate.getDate()).padStart(2, '0');
@@ -87,11 +107,12 @@ const JobFormModal = ({ visible, onClose, onSuccess, editJob = null }) => {
             const token = await AsyncStorage.getItem('token');
             const body  = {
                 ...form,
+                title: form.title.trim(),
                 salary_min:  form.salary_min  ? Number(form.salary_min)  : null,
                 salary_max:  form.salary_max  ? Number(form.salary_max)  : null,
                 quantity:    form.quantity    ? Number(form.quantity)    : null,
                 category_id: Number(form.category_id),
-                company_id:  Number(form.company_id), // Truyền chuẩn ID số nguyên để hết lỗi 400
+                company_id:  Number(form.company_id),
                 skill_ids:   [],
             };
             if (editJob) {
@@ -112,40 +133,101 @@ const JobFormModal = ({ visible, onClose, onSuccess, editJob = null }) => {
     return (
         <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
             <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
-                <ScrollView contentContainerStyle={{ padding: 20 }}>
-                    <Text style={styles.jobFormTitle}>
-                        {editJob ? 'CHỈNH SỬA BÀI ĐĂNG' : 'ĐĂNG TIN TUYỂN DỤNG'}
-                    </Text>
-                    {!!err && <HelperText type="error" visible>{err}</HelperText>}
+                <KeyboardAvoidingView 
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                        <Text style={styles.jobFormTitle}>
+                            {editJob ? 'CHỈNH SỬA BÀI ĐĂNG' : 'ĐĂNG TIN TUYỂN DỤNG'}
+                        </Text>
+                        {!!err && <HelperText type="error" visible>{err}</HelperText>}
 
-                    {FORM_FIELDS.map(f =>
-                        f.type === 'picker' ? (
-                            <View key={f.key} style={styles.jobPickerContainer}>
-                                <Text style={styles.jobPickerLabel}>{f.label}</Text>
-                                <Picker selectedValue={form[f.key]} onValueChange={val => update(f.key, val)} style={{ height: 50 }}>
-                                    <Picker.Item label="-- Chọn danh mục --" value="" color="#888" />
-                                    {categories.map(cat => (
-                                        <Picker.Item key={cat.id} label={cat.name} value={String(cat.id)} color="#000" />
-                                    ))}
-                                </Picker>
-                            </View>
-                        ) : (
-                            <TextInput
-                                key={f.key} label={f.label} value={form[f.key]}
-                                onChangeText={t => update(f.key, t)}
-                                mode="outlined" style={styles.jobFormInput}
-                                outlineColor="#3B5BDB" activeOutlineColor="#3B5BDB"
-                                keyboardType={f.keyboard || 'default'}
-                                multiline={!!f.multiline} numberOfLines={f.multiline ? 3 : 1}
-                            />
-                        )
-                    )}
+                        {FORM_FIELDS.map(f => {
+                            if (f.type === 'company_picker') {
+                                return (
+                                    <View key={f.key} style={[styles.jobPickerContainer, { marginVertical: 8 }]}>
+                                        <Text style={styles.jobPickerLabel}>{f.label}</Text>
+                                        <View style={{ borderWidth: 1, borderColor: '#3B5BDB', borderRadius: 4, backgroundColor: '#fff', overflow: 'hidden' }}>
+                                            <Picker selectedValue={form[f.key]} onValueChange={val => update(f.key, val)} style={{ height: 50 }}>
+                                                <Picker.Item label="-- Chọn công ty của bạn --" value="" color="#888" />
+                                                {myCompanies.map(comp => (
+                                                    <Picker.Item key={comp.id} label={comp.name} value={String(comp.id)} color="#000" />
+                                                ))}
+                                            </Picker>
+                                        </View>
+                                    </View>
+                                );
+                            }
 
-                    <Button mode="contained" loading={loading} disabled={loading} onPress={handleSubmit} style={styles.jobFormSubmitBtn}>
-                        {editJob ? 'LƯU THAY ĐỔI' : 'ĐĂNG TIN'}
-                    </Button>
-                    <Button mode="text" onPress={onClose} textColor="#888" style={{ marginTop: 8 }}>Hủy</Button>
-                </ScrollView>
+                            if (f.type === 'picker') {
+                                return (
+                                    <View key={f.key} style={[styles.jobPickerContainer, { marginVertical: 8 }]}>
+                                        <Text style={styles.jobPickerLabel}>{f.label}</Text>
+                                        <View style={{ borderWidth: 1, borderColor: '#3B5BDB', borderRadius: 4, backgroundColor: '#fff', overflow: 'hidden' }}>
+                                            <Picker selectedValue={form[f.key]} onValueChange={val => update(f.key, val)} style={{ height: 50 }}>
+                                                <Picker.Item label="-- Chọn danh mục --" value="" color="#888" />
+                                                {categories.map(cat => (
+                                                    <Picker.Item key={cat.id} label={cat.name} value={String(cat.id)} color="#000" />
+                                                ))}
+                                            </Picker>
+                                        </View>
+                                    </View>
+                                );
+                            }
+
+                            if (f.type === 'date') {
+                                return (
+                                    <View key={f.key} style={{ marginVertical: 4 }}>
+                                        <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
+                                            <View pointerEvents="none">
+                                                <TextInput
+                                                    label={f.label}
+                                                    value={form[f.key]}
+                                                    mode="outlined"
+                                                    style={styles.jobFormInput}
+                                                    outlineColor="#3B5BDB"
+                                                    activeOutlineColor="#3B5BDB"
+                                                    editable={false}
+                                                    right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
+                                                />
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        {showDatePicker && (
+                                            <DateTimePicker
+                                                value={form[f.key] ? new Date(form[f.key]) : new Date()}
+                                                mode="date"
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                minimumDate={new Date()} // Chặn không cho chọn ngày quá khứ
+                                                onChange={onDateChange}
+                                            />
+                                        )}
+                                        {Platform.OS === 'ios' && showDatePicker && (
+                                            <Button mode="text" compact onPress={() => setShowDatePicker(false)}>Xác nhận ngày</Button>
+                                        )}
+                                    </View>
+                                );
+                            }
+
+                            return (
+                                <TextInput
+                                    key={f.key} label={f.label} value={form[f.key]}
+                                    onChangeText={t => update(f.key, t)}
+                                    mode="outlined" style={styles.jobFormInput}
+                                    outlineColor="#3B5BDB" activeOutlineColor="#3B5BDB"
+                                    keyboardType={f.keyboard || 'default'}
+                                    multiline={!!f.multiline} numberOfLines={f.multiline ? 3 : 1}
+                                />
+                            );
+                        })}
+
+                        <Button mode="contained" loading={loading} disabled={loading} onPress={handleSubmit} style={styles.jobFormSubmitBtn}>
+                            {editJob ? 'LƯU THAY ĐỔI' : 'ĐĂNG TIN'}
+                        </Button>
+                        <Button mode="text" onPress={onClose} textColor="#888" style={{ marginTop: 8 }}>Hủy</Button>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </Modal>
     );
@@ -279,12 +361,67 @@ export default function JobManagement() {
     const [editJob, setEditJob]   = useState(null);
     const [showBoost, setShowBoost] = useState(false);
     const [boostJob, setBoostJob]   = useState(null);
+    const [myCompanies, setMyCompanies] = useState([]);
 
-    useEffect(() => { load(1); }, [load]);
+    const [stats, setStats] = useState({
+        totalJobs: 0,
+        totalApps: 0,
+        avgRating: 0,
+        ratio: 0,
+    });
+    const [loadingStats, setLoadingStats] = useState(true);
+
+    // Tải thông tin thống kê dashboard từ backend
+    const fetchDashboardStats = useCallback(async () => {
+        try {
+            setLoadingStats(true);
+            const token = await AsyncStorage.getItem('token');
+            const res = await authApi(token).get(endpoints['employer-dashboard']);
+            
+            const overview = res.data?.overview || {};
+            const totalJobs = overview.total_jobs_posted || 0;
+            const totalApps = overview.total_applications || 0;
+            const avgRating = overview.avg_candidate_rating || 0;
+            const ratio = totalJobs > 0 ? (totalApps / totalJobs).toFixed(1) : 0;
+
+            setStats({ totalJobs, totalApps, avgRating, ratio });
+        } catch (ex) {
+            console.error("Lỗi nạp dữ liệu thống kê Dashboard:", ex.message);
+        } finally {
+            setLoadingStats(false);
+        }
+    }, []);
+
+    const fetchMyCompanies = useCallback(async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const res = await authApi(token).get(endpoints['my-companies']);
+            const cData = res.data;
+            setMyCompanies(Array.isArray(cData) ? cData : cData?.results || []);
+        } catch (ex) {
+            console.error('Lỗi nạp danh sách công ty:', ex.message);
+        }
+    }, []);
+
+    const handleRefreshAll = useCallback(async () => {
+        await Promise.all([refresh(), fetchDashboardStats(), fetchMyCompanies()]);
+    }, [refresh, fetchDashboardStats, fetchMyCompanies]);
+
+    useEffect(() => { 
+        load(1); 
+        fetchDashboardStats();
+        fetchMyCompanies();
+    }, [load, fetchDashboardStats, fetchMyCompanies]);
 
     const handleEdit   = (job) => { setEditJob(job); setShowForm(true); };
     const handleBoost  = (job) => { setBoostJob(job); setShowBoost(true); };
-    const handleCreate = () => { setEditJob(null); setShowForm(true); };
+    const handleCreate = () => { 
+        if (myCompanies.length === 0) {
+            return Alert.alert('Thông báo', 'Bạn cần tạo hồ sơ doanh nghiệp trước khi đăng tuyển công việc!');
+        }
+        setEditJob(null); 
+        setShowForm(true); 
+    };
 
     const handleDelete = (job) => {
         Alert.alert('Xác nhận xóa', `Bạn có chắc muốn xóa bài tuyển dụng "${job.title}"?`, [
@@ -296,11 +433,33 @@ export default function JobManagement() {
                         const token = await AsyncStorage.getItem('token');
                         await authApi(token).delete(endpoints['job-detail'](job.id));
                         setJobs(prev => prev.filter(j => j.id !== job.id));
+                        fetchDashboardStats();
                     } catch { Alert.alert('Lỗi', 'Không thể xóa tin. Vui lòng thử lại sau!'); }
                 },
             },
         ]);
     };
+
+    const StatCard = ({ title, value, color }) => (
+        <View style={{
+            flex: 1,
+            backgroundColor: '#fff',
+            borderRadius: 8,
+            padding: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 2,
+        }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: color, marginBottom: 4 }}>{value}</Text>
+            <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500', textAlign: 'center' }} numberOfLines={2}>{title}</Text>
+        </View>
+    );
 
     if (loading) return (
         <View style={styles.centered}>
@@ -327,7 +486,7 @@ export default function JobManagement() {
                 renderItem={({ item }) => (
                     <JobCard job={item} onEdit={handleEdit} onDelete={handleDelete} onBoost={handleBoost} />
                 )}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefreshAll} />}
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <Text style={styles.emptyIconWrap}>📋</Text>
@@ -341,14 +500,15 @@ export default function JobManagement() {
             <JobFormModal
                 visible={showForm}
                 onClose={() => setShowForm(false)}
-                onSuccess={() => load(page)}
+                onSuccess={handleRefreshAll} 
                 editJob={editJob}
+                myCompanies={myCompanies}
             />
             <BoostJobModal
                 visible={showBoost}
                 onClose={() => setShowBoost(false)}
                 job={boostJob}
-                onSuccess={() => load(page)}
+                onSuccess={handleRefreshAll}
             />
         </SafeAreaView>
     );

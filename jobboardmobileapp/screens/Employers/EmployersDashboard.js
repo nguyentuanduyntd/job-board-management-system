@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
-import styles, { Colors } from './Styles';;
+import styles, { Colors } from './Styles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,18 +19,16 @@ export default function EmployerDashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Period cho từng section (month, quarter, year)
   const [appPeriod, setAppPeriod] = useState('month');
   const [jobPeriod, setJobPeriod] = useState('month');
 
-  //   LOAD DATA  
+  // LOAD DATA
   const fetchData = useCallback(async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
       const token = await AsyncStorage.getItem("token");
       const res = await authApi(token).get(endpoints['employer-statistics']);
-      
       setData(res.data);
     } catch (ex) {
       console.error('Load employer dashboard error:', ex.message);
@@ -44,30 +42,24 @@ export default function EmployerDashboardScreen({ navigation }) {
     fetchData();
   }, [fetchData]);
 
-  //   HELPERS  
-  const formatNumber = (value) => {
-    if (!value && value !== 0) return '—';
-    return value.toLocaleString('vi-VN');
-  };
-
+  // HELPERS
   const buildChartData = (prefix, period) => {
     if (!data) return [];
     const key = `${prefix}_by_${period}`;
     return (data[key] || []).map(item => {
       const raw = item[period];
-      let label = '?';
+      let _label = '?';
       if (raw) {
         const d = new Date(raw);
-        if (period === 'month') label = `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
-        else if (period === 'quarter') label = `Q${Math.floor(d.getMonth() / 3) + 1}/${String(d.getFullYear()).slice(2)}`;
-        else label = `${d.getFullYear()}`;
+        if (period === 'month') _label = `T${d.getMonth() + 1}/${String(d.getFullYear()).slice(2)}`;
+        else if (period === 'quarter') _label = `Q${Math.floor(d.getMonth() / 3) + 1}/${String(d.getFullYear()).slice(2)}`;
+        else _label = `${d.getFullYear()}`;
       }
-      return { ...item, _label: label };
+      return { ...item, _label };
     });
   };
 
-  //   RENDER COMPONENTS  
-
+  // SHARED COMPONENTS (giống AdminDashboard)
   const OverviewCard = ({ label, value, color, iconBg, icon }) => (
     <View style={styles.overviewCard}>
       <View style={[styles.overviewIconWrap, { backgroundColor: iconBg }]}>
@@ -77,22 +69,6 @@ export default function EmployerDashboardScreen({ navigation }) {
       <Text style={styles.overviewLabel}>{label}</Text>
     </View>
   );
-
-  const RatingStars = ({ rating }) => {
-    const stars = Math.round(rating);
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-        {[1, 2, 3, 4, 5].map(i => (
-          <Text key={i} style={{ fontSize: 14, color: i <= stars ? '#F59F00' : '#DEE2E6' }}>
-            ★
-          </Text>
-        ))}
-        <Text style={{ marginLeft: 6, fontSize: 13, fontWeight: '600', color: '#495057' }}>
-          {rating > 0 ? rating.toFixed(1) : '0'}
-        </Text>
-      </View>
-    );
-  };
 
   const PeriodToggle = ({ value, onChange }) => (
     <View style={styles.periodRow}>
@@ -115,7 +91,7 @@ export default function EmployerDashboardScreen({ navigation }) {
     const maxVal = Math.max(...data.map(d => d[valueKey] || 0)) || 1;
 
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {data.map((item, i) => {
           const val = item[valueKey] || 0;
           const barH = Math.max(4, Math.round(100 * (val / maxVal)));
@@ -133,11 +109,11 @@ export default function EmployerDashboardScreen({ navigation }) {
     );
   };
 
-  // MAIN RENDER
+  // LOADING STATE
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#3B5BDB" />
+        <ActivityIndicator size="large" color={Colors.accent} />
       </View>
     );
   }
@@ -150,7 +126,7 @@ export default function EmployerDashboardScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -158,76 +134,75 @@ export default function EmployerDashboardScreen({ navigation }) {
           <Text style={styles.headerSub}>Hoạt động tuyển dụng</Text>
         </View>
         <TouchableOpacity style={styles.refreshIconBtn} onPress={() => fetchData(true)}>
-            <Text style={styles.refreshIconText}>↻</Text>
+          <Text style={styles.refreshIconText}>↻</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll} // Quan trọng: Đưa padding vào đây
+        contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} />
         }
       >
-        {/* Overview Grid */}
+        {/* Overview Grid — giống AdminDashboard */}
         <View style={styles.overviewGrid}>
-          <OverviewCard 
-            label="Tin đã đăng" 
-            value={ov.total_jobs_posted || 0} 
-            color={Colors.accent} 
-            iconBg="#EFF6FF" 
+          <OverviewCard
+            label="Tin đã đăng"
+            value={ov.total_jobs_posted || 0}
+            color={Colors.accent}
+            iconBg="#EFF6FF"
             icon={<Ionicons name="briefcase" size={20} color={Colors.accent} />}
           />
-          <OverviewCard 
-            label="Đơn ứng tuyển" 
-            value={ov.total_applications || 0} 
-            color={Colors.green} 
-            iconBg="#F0FDF4" 
-            icon={<Ionicons name="mail" size={20} color={Colors.green} />} 
+          <OverviewCard
+            label="Đơn ứng tuyển"
+            value={ov.total_applications || 0}
+            color={Colors.green}
+            iconBg="#F0FDF4"
+            icon={<Ionicons name="mail" size={20} color={Colors.green} />}
+          />
+          <OverviewCard
+            label="Đánh giá TB"
+            value={ov.avg_candidate_rating ? Number(ov.avg_candidate_rating).toFixed(1) : '0.0'}
+            color="#F59E0B"
+            iconBg="#FFFBEB"
+            icon={<Ionicons name="star" size={20} color="#F59E0B" />}
+          />
+          <OverviewCard
+            label="Đơn / Tin"
+            value={convRate}
+            color={Colors.purple}
+            iconBg="#FAF5FF"
+            icon={<Ionicons name="bar-chart" size={20} color={Colors.purple} />}
           />
         </View>
 
-        {/* Meta Row (Rating & Tỷ lệ) */}
-        <View style={styles.metaRow}>
-          <View style={styles.metaCard}>
-            <Text style={styles.metaCardTitle}>
-              <Ionicons name="star" size={12} color="#F59E0B" />
-              ĐÁNH GIÁ TB
-            </Text>
-            <RatingStars rating={ov.avg_candidate_rating || 0} />
+        {/* Chart: Đơn ứng tuyển */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: Colors.green }]} />
+            <Text style={styles.sectionTitle}>Đơn ứng tuyển nhận được</Text>
           </View>
-          <View style={styles.metaCard}>
-            <Text style={styles.metaCardTitle}>
-              <Ionicons name="bar-chart" size={12} color={Colors.purple} />
-              ĐƠN / TIN
-            </Text>
-            <Text style={[styles.metaBigNum, { color: Colors.purple }]}>{convRate}</Text>
-          </View>
+          <PeriodToggle value={appPeriod} onChange={setAppPeriod} />
+          <SimpleBarChart
+            data={buildChartData('applications', appPeriod)}
+            valueKey="total"
+            color={Colors.green}
+          />
         </View>
 
-        {/* Các Section Thống Kê */}
+        {/* Chart: Tin tuyển dụng */}
         <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionDot, {backgroundColor: Colors.green}]} />
-              <Text style={styles.sectionTitle}>Đơn ứng tuyển nhận được</Text>
-            </View>
-            <PeriodToggle value={appPeriod} onChange={setAppPeriod} />
-            <SimpleBarChart 
-                data={buildChartData('applications', appPeriod)} 
-                valueKey="total" color={Colors.green} 
-            />
-        </View>
-
-        <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionDot, {backgroundColor: Colors.accent}]} />
-              <Text style={styles.sectionTitle}>Tin tuyển dụng đã đăng</Text>
-            </View>
-            <PeriodToggle value={jobPeriod} onChange={setJobPeriod} />
-            <SimpleBarChart 
-                data={buildChartData('jobs', jobPeriod)} 
-                valueKey="total" color={Colors.accent} 
-            />
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: Colors.accent }]} />
+            <Text style={styles.sectionTitle}>Tin tuyển dụng đã đăng</Text>
+          </View>
+          <PeriodToggle value={jobPeriod} onChange={setJobPeriod} />
+          <SimpleBarChart
+            data={buildChartData('jobs', jobPeriod)}
+            valueKey="total"
+            color={Colors.accent}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
