@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
     View, Text, FlatList, TextInput,
     TouchableOpacity, Image, ScrollView,
-    ActivityIndicator, Modal, Alert
+    ActivityIndicator, Modal, Alert, RefreshControl 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -29,6 +29,7 @@ export default function HomeScreen({ navigation }) {
     const [featuredCompanies, setFeaturedCompanies] = useState([]);
     const [keyword, setKeyword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false); // 2. Thêm state quản lý hiệu ứng kéo làm mới dữ liệu
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
     const [showSortModal, setShowSortModal] = useState(false);
@@ -44,9 +45,11 @@ export default function HomeScreen({ navigation }) {
     const isFilterChanging = useRef(false);
 
     // ==================== LOAD JOBS ====================
-    const loadJobs = useCallback(async (currentPage, currentKeyword, currentCategory, currentSort) => {
+    const loadJobs = useCallback(async (currentPage, currentKeyword, currentCategory, currentSort, isPullToRefresh = false) => {
         try {
-            setLoading(true);
+            // Nếu là kéo xuống refresh thì không bật cái xoay loading to đùng ở giữa màn hình để tránh lỗi giao diện
+            if (!isPullToRefresh) setLoading(true);
+            
             let url = `${endpoints['jobs']}?page=${currentPage}&ordering=${currentSort.value}`;
             if (currentKeyword) url += `&search=${encodeURIComponent(currentKeyword)}`;
             if (currentCategory) url += `&category=${currentCategory}`;
@@ -61,11 +64,18 @@ export default function HomeScreen({ navigation }) {
             setJobs([]);
         } finally {
             setLoading(false);
+            setRefreshing(false); // Tắt hiệu ứng kéo xoay khi API hoàn tất
         }
     }, []);
 
+    // ==================== HANDLE PULL TO REFRESH ====================
+    const handleRefresh = useCallback(() => {
+        setRefreshing(true);
+        setPage(1); // Ép trạng thái trang về 1
+        loadJobs(1, keyword, selectedCategory, sortBy, true);
+    }, [keyword, selectedCategory, sortBy, loadJobs]);
+
     // ==================== LOAD CATEGORIES ====================
-    // Chỉ gọi 1 lần khi mount
     const loadCategories = useCallback(async () => {
         try {
             const res = await Apis.get(endpoints['categories']);
@@ -76,7 +86,6 @@ export default function HomeScreen({ navigation }) {
     }, []);
 
     // ==================== LOAD FEATURED COMPANIES ====================
-    // companiesLoaded ref để tránh gọi lại mỗi lần focus — N+1 rất tốn quota
     const companiesLoaded = useRef(false);
 
     const loadFeaturedCompanies = useCallback(async () => {
@@ -113,7 +122,6 @@ export default function HomeScreen({ navigation }) {
     }, []);
 
     // ==================== KHI FILTER THAY ĐỔI: reset page về 1 ====================
-    // Dùng ref để không trigger loadJobs 2 lần (1 lần do filter, 1 lần do page reset)
     useEffect(() => {
         isFilterChanging.current = true;
         setPage(1);
@@ -121,8 +129,6 @@ export default function HomeScreen({ navigation }) {
 
     // ==================== KHI PAGE THAY ĐỔI: load jobs ====================
     useEffect(() => {
-        // Nếu page vừa được reset bởi filter change, bỏ qua lần render này
-        // và để lần render tiếp theo (sau khi isFilterChanging reset) mới gọi
         if (isFilterChanging.current && page === 1) {
             isFilterChanging.current = false;
             loadJobs(1, keyword, selectedCategory, sortBy);
@@ -131,14 +137,14 @@ export default function HomeScreen({ navigation }) {
         if (!isFilterChanging.current) {
             loadJobs(page, keyword, selectedCategory, sortBy);
         }
-    }, [page, keyword, selectedCategory, sortBy]);
+    }, [page, keyword, selectedCategory, sortBy, loadJobs]);
 
     // ==================== FOCUS: reload jobs khi quay lại màn hình ====================
-    // KHÔNG truyền deps filter để tránh gọi trùng với useEffect trên
+    // 3. FIX LỖI: Thêm đầy đủ dependency array giúp tránh vòng lặp re-render vô hạn làm sập app
     useFocusEffect(
         useCallback(() => {
             loadJobs(page, keyword, selectedCategory, sortBy);
-        }, []) // deps rỗng: chỉ gọi khi focus, không gọi lại khi filter đổi
+        }, [page, keyword, selectedCategory, sortBy, loadJobs])
     );
 
     // ==================== LOGIC XỬ LÝ SO SÁNH ====================
@@ -179,7 +185,6 @@ export default function HomeScreen({ navigation }) {
         } catch (ex) {
             console.error('Sync compare error:', ex.message);
         } finally {
-            // Luôn mở modal dù sync lỗi
             setShowCompareModal(true);
         }
     };
@@ -501,7 +506,18 @@ export default function HomeScreen({ navigation }) {
             <SortModal />
             <JobComparisonModal />
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            {/* 4. TỐI ƯU GIAO DIỆN: Bọc ScrollView chính bằng bộ RefreshControl kéo-để-tải-mới mượt mà */}
+            <ScrollView 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={handleRefresh} 
+                        colors={["#3B5BDB"]} // Màu loader trên Android
+                        tintColor="#3B5BDB"  // Màu loader trên iOS
+                    />
+                }
+            >
                 {/* Categories */}
                 {categories.length > 0 && (
                     <>
@@ -538,7 +554,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
 
                 {/* Jobs List */}
-                {loading ? (
+                {loading && !refreshing ? (
                     <ActivityIndicator size="large" color="#3B5BDB" style={{ marginTop: 40 }} />
                 ) : jobs.length === 0 ? (
                     <Text style={styles.emptyText}>Không tìm thấy việc làm nào</Text>

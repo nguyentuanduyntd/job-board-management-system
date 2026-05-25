@@ -122,9 +122,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(companies, many=True)
         return Response(serializer.data)
 
-    # JOB
-
-
+# JOB
 class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.filter(is_active=True, status='approved') \
         .select_related('company', 'category') \
@@ -147,7 +145,7 @@ class JobViewSet(viewsets.ModelViewSet):
             return [IsVerifiedEmployer()]
         return [permissions.AllowAny()]
 
-    # cache: đọc danh sách job từ redis ram trước khi quét DB
+    # Đọc danh sách job từ redis ram trước khi quét DB
     def list(self, request, *args, **kwargs):
         page = request.query_params.get('page', '1')
         job_type = request.query_params.get('job_type', '')
@@ -164,56 +162,30 @@ class JobViewSet(viewsets.ModelViewSet):
             return Response(cached_jobs)
 
         response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300)  # Cache trong 5 phút
+
+        # Tăng thời gian lưu trữ lên 1 ngày (86400 giây) vì ta đã kiểm soát việc xóa cache chủ động
+        cache.set(cache_key, response.data, timeout=86400)
         return response
 
     def perform_create(self, serializer):
         serializer.save()
-        cache.clear()  # Xóa sạch cache khi có bài đăng mới để cập nhật lên app
+        # Không cần viết code xóa cache ở đây, Tín hiệu ngầm (Signal) sẽ tự xử lý
 
     def perform_update(self, serializer):
         job = self.get_object()
         if job.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền sửa job này.')
         serializer.save()
-        cache.clear()
+        # Signal tự động nhận biết sự kiện save() và dọn cache
 
     def perform_destroy(self, instance):
         if instance.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền xóa job này!')
+
+        # Vì bạn thực hiện Xóa mềm (Soft Delete) bằng cách thay đổi is_active và lưu lại,
+        # hàm save() này vẫn sẽ kích hoạt tín hiệu post_save để dọn sạch cache trên Redis.
         instance.is_active = False
         instance.save()
-        cache.clear()
-
-    @action(detail=True, methods=['get'], permission_classes=[IsEmployer], url_path='applications')
-    def applications(self, request, pk=None):
-        job = self.get_object()
-        if job.company.owner != request.user:
-            return Response({'error': 'Bạn không có quyền xem.'}, status=403)
-        apps = job.applications.select_related('candidate__profile') \
-            .prefetch_related('candidate__profile__skills')
-        status_filter = request.query_params.get('status')
-        if status_filter:
-            apps = apps.filter(status=status_filter)
-        apps = apps.order_by('-priority_level', '-created_at')
-
-        return Response(ApplicationSerializer(apps, many=True, context={'request': request}).data)
-
-    @action(detail=False, methods=['get'], url_path='my-jobs', permission_classes=[IsVerifiedEmployer])
-    def my_jobs(self, request):
-        jobs = Job.objects.filter(
-            company__owner=request.user
-        ).select_related('company', 'category') \
-            .prefetch_related('skills') \
-            .order_by('-created_at')
-
-        page = self.paginate_queryset(jobs)
-        if page is not None:
-            serializer = JobDetailSerializer(page, many=True, context={'request': request})
-            return self.get_paginated_response(serializer.data)
-
-        return Response(JobDetailSerializer(jobs, many=True, context={'request': request}).data)
-
 
 class JobComparisonViewSet(viewsets.ModelViewSet):
     serializer_class = JobComparisonSerializer
