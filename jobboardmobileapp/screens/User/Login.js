@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Alert, processColor } from "react-native";
+import React, { useState } from "react";
+import { ScrollView, View, TouchableOpacity, Alert } from "react-native";
 import { Button, HelperText, TextInput, Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -9,17 +9,16 @@ import Apis, { authApi, endpoints } from "../../configs/Apis";
 import { useMyDispatch } from "../../configs/Contexts";
 import styles from "./Styles";
 
-const CLIENT_ID     = process.env.EXPO_PUBLIC_CLIENT_ID;
+const CLIENT_ID = process.env.EXPO_PUBLIC_CLIENT_ID;
 const CLIENT_SECRET = process.env.EXPO_PUBLIC_CLIENT_SECRET;
 
-
 const Login = () => {
-    const [user, setUser]         = useState({ username: "", password: "" });
-    const [err, setErr]           = useState("");
-    const [loading, setLoading]   = useState(false);
+    const [user, setUser] = useState({ username: "", password: "" });
+    const [err, setErr] = useState("");
+    const [loading, setLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
 
-    const nav      = useNavigation();
+    const nav = useNavigation();
     const dispatch = useMyDispatch();
 
     const updateUser = (field, value) => setUser(prev => ({ ...prev, [field]: value }));
@@ -40,11 +39,11 @@ const Login = () => {
 
         try {
             const params = {
-                username:      user.username,
-                password:      user.password,
-                client_id:     CLIENT_ID,
+                username: user.username,
+                password: user.password,
+                client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
-                grant_type:    "password",
+                grant_type: "password",
             };
             const formBody = Object.keys(params)
                 .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
@@ -54,10 +53,8 @@ const Login = () => {
                 headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
             });
 
-            //Lưu token vào bộ nhớ máy để các API sau này bóc tách sử dụng
             await AsyncStorage.setItem("token", res.data.access_token);
             
-            //lấy dữ liệu Profile chi tiết từ Backend
             const userData = await fetchProfile(res.data.access_token);
 
         } catch (ex) {
@@ -75,7 +72,6 @@ const Login = () => {
                 return;
             }
 
-            // Sai username / password hoặc lỗi khác
             setErr("Tên đăng nhập hoặc mật khẩu không chính xác!");
         } finally {
             setLoading(false);
@@ -90,7 +86,7 @@ const Login = () => {
                     <Text style={styles.title}>ĐĂNG NHẬP</Text>
                 </View>
 
-                {err ? <HelperText type="error" visible>{err}</HelperText> : null}
+                {err ? <HelperText type="error" visible style={styles.errorText}>{err}</HelperText> : null}
 
                 <TextInput
                     label="Tên đăng nhập"

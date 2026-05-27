@@ -8,15 +8,14 @@ import { TextInput, Button, HelperText } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import { useStripe } from '@stripe/stripe-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker'; // Import thư viện lịch
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles';
 import usePagination from '../../hooks/usePagination';
 import Paginator from '../../components/Paginator';
 
-// CONSTANTS
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const FORM_FIELDS = [
     { key: 'title',        label: 'Tiêu đề *',             keyboard: 'default' },
@@ -26,7 +25,7 @@ const FORM_FIELDS = [
     { key: 'salary_min',   label: 'Lương tối thiểu',        keyboard: 'numeric' },
     { key: 'salary_max',   label: 'Lương tối đa',           keyboard: 'numeric' },
     { key: 'quantity',     label: 'Số lượng tuyển',         keyboard: 'numeric' },
-    { key: 'deadline',     label: 'Hạn nộp *',              type: 'date' }, // Chuyển sang type 'date' để tích hợp lịch
+    { key: 'deadline',     label: 'Hạn nộp *',              type: 'date' },
     { key: 'description',  label: 'Mô tả công việc',        multiline: true },
     { key: 'requirements', label: 'Yêu cầu',                multiline: true },
     { key: 'benefits',     label: 'Quyền lợi',              multiline: true },
@@ -44,25 +43,21 @@ const APPROVAL_CONFIG = {
     rejected: { color: '#EF4444', bg: '#FEF2F2', text: 'Bị từ chối' },
 };
 
-// ─── JOB FORM MODAL (ĐÃ TÍCH HỢP LỊCH TRỰC QUAN) ───────────────────────────────
 const JobFormModal = ({ visible, onClose, onSuccess, editJob = null, myCompanies = [] }) => {
     const [form, setForm]           = useState(EMPTY_FORM);
     const [categories, setCategories] = useState([]);
     const [loading, setLoading]     = useState(false);
     const [err, setErr]             = useState('');
     
-    // Trạng thái hiển thị DatePicker
     const [showDatePicker, setShowDatePicker] = useState(false);
 
-    // Tải danh mục ngành nghề từ Backend
     useEffect(() => {
         if (!visible) return;
         authApi().get(endpoints['categories'])
             .then(res => setCategories(res.data?.results ?? res.data))
             .catch(ex => console.error('Lỗi load danh mục:', ex));
     }, [visible]);
-
-    // Đồng bộ dữ liệu khi Sửa hoặc Tạo mới 
+ 
     useEffect(() => {
         if (editJob) {
             setForm({
@@ -85,12 +80,10 @@ const JobFormModal = ({ visible, onClose, onSuccess, editJob = null, myCompanies
 
     const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-    // Hàm xử lý sự kiện khi thay đổi ngày trên bảng lịch
     const onDateChange = (event, selectedDate) => {
         if (Platform.OS === 'android') setShowDatePicker(false);
         
         if (selectedDate) {
-            // Định dạng ngày thành chuỗi YYYY-MM-DD chuẩn để gửi lên Backend Django
             const yyyy = selectedDate.getFullYear();
             const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
             const dd = String(selectedDate.getDate()).padStart(2, '0');
@@ -199,7 +192,7 @@ const JobFormModal = ({ visible, onClose, onSuccess, editJob = null, myCompanies
                                                 value={form[f.key] ? new Date(form[f.key]) : new Date()}
                                                 mode="date"
                                                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                                minimumDate={new Date()} // Chặn không cho chọn ngày quá khứ
+                                                minimumDate={new Date()}
                                                 onChange={onDateChange}
                                             />
                                         )}
@@ -233,7 +226,6 @@ const JobFormModal = ({ visible, onClose, onSuccess, editJob = null, myCompanies
     );
 };
 
-// ─── BOOST JOB MODAL ─────────────────────────────────────────────────────────
 const BoostJobModal = ({ visible, onClose, job, onSuccess }) => {
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [packages, setPackages]           = useState([]);
@@ -314,7 +306,6 @@ const BoostJobModal = ({ visible, onClose, job, onSuccess }) => {
     );
 };
 
-// ─── JOB CARD ─────────────────────────────────────────────────────────────────
 const JobCard = ({ job, onEdit, onDelete, onBoost }) => {
     const approval  = APPROVAL_CONFIG[job.status] || APPROVAL_CONFIG.pending;
     const isFeatured = Boolean(job.is_featured);
@@ -323,7 +314,7 @@ const JobCard = ({ job, onEdit, onDelete, onBoost }) => {
         <View style={[styles.jobCard, isFeatured ? styles.jobCardFeatured : {}]}>
             {isFeatured && (
                 <View style={styles.featuredRibbon}>
-                    <Text style={styles.featuredRibbonText}>🔥 NỔI BẬT</Text>
+                    <Text style={styles.featuredRibbonText}>NỔI BẬT</Text>
                 </View>
             )}
             <View style={styles.jobCardHeader}>
@@ -344,7 +335,7 @@ const JobCard = ({ job, onEdit, onDelete, onBoost }) => {
                 </TouchableOpacity>
                 {job.status === 'approved' && !isFeatured && (
                     <TouchableOpacity style={styles.boostBtn} onPress={() => onBoost(job)}>
-                        <Text style={styles.boostBtnText}>🚀 Đẩy tin</Text>
+                        <Text style={styles.boostBtnText}>Đẩy tin</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -352,7 +343,6 @@ const JobCard = ({ job, onEdit, onDelete, onBoost }) => {
     );
 };
 
-// ─── MÀN HÌNH CHÍNH ───────────────────────────────────────────────────────────
 export default function JobManagement() {
     const { data: jobs, setData: setJobs, loading, refreshing, page, totalPages, load, refresh, goTo } =
         usePagination(endpoints['my-jobs'], PAGE_SIZE);
@@ -371,7 +361,6 @@ export default function JobManagement() {
     });
     const [loadingStats, setLoadingStats] = useState(true);
 
-    // Tải thông tin thống kê dashboard từ backend
     const fetchDashboardStats = useCallback(async () => {
         try {
             setLoadingStats(true);
@@ -461,12 +450,6 @@ export default function JobManagement() {
         </View>
     );
 
-    if (loading) return (
-        <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.accent} />
-        </View>
-    );
-
     return (
         <SafeAreaView style={styles.root}>
             <View style={styles.header}>
@@ -478,24 +461,36 @@ export default function JobManagement() {
                     <Text style={styles.addJobBtnText}>+ Đăng tin</Text>
                 </TouchableOpacity>
             </View>
-
-            <FlatList
-                contentContainerStyle={styles.listContent}
-                data={jobs}
-                keyExtractor={item => item.id.toString()}
-                renderItem={({ item }) => (
-                    <JobCard job={item} onEdit={handleEdit} onDelete={handleDelete} onBoost={handleBoost} />
-                )}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefreshAll} />}
-                ListEmptyComponent={
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyIconWrap}>📋</Text>
-                        <Text style={styles.emptyText}>Bạn chưa có bài đăng nào.{'\n'}Nhấn "+ Đăng tin" để bắt đầu!</Text>
-                    </View>
-                }
-            />
-
-            <Paginator page={page} totalPages={totalPages} onGoTo={goTo} />
+            {loading && !refreshing ? (
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={Colors.accent} />
+                </View>
+            ) : (
+                <FlatList
+                    contentContainerStyle={styles.listContent}
+                    data={jobs}
+                    keyExtractor={item => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <JobCard job={item} onEdit={handleEdit} onDelete={handleDelete} onBoost={handleBoost} />
+                    )}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefreshAll} />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.empty}>
+                            <Text style={styles.emptyIconWrap}></Text>
+                            <Text style={styles.emptyText}>
+                                Bạn chưa có bài đăng nào.{'\n'}Nhấn "+ Đăng tin" để bắt đầu!
+                            </Text>
+                        </View>
+                    }
+                    ListFooterComponent={
+                        <View style={{ paddingBottom: 16 }}>
+                            <Paginator page={page} totalPages={totalPages} onGoTo={goTo} />
+                        </View>
+                    }
+                />
+            )}
 
             <JobFormModal
                 visible={showForm}

@@ -1,14 +1,8 @@
 import axios from "axios";
 
-// <<<<<<< HEAD
-// export const BASE_URL = 'http://192.168.1.17:8000';
-// =======
-// export const BASE_URL = 'http://192.168.1.176:8000';
-// >>>>>>> c67254b (Docker rabbit)
+export const BASE_URL = 'http://192.168.1.32:8000';
 
-export const BASE_URL = 'http://192.168.1.16:8000';
 export const endpoints = {      
-    // Auth
     'register': '/auth/register/',
     'login' : '/auth/login/',
     'change-password' : '/auth/change-password/',
@@ -18,36 +12,29 @@ export const endpoints = {
     'google_login':    '/auth/google-login/',
     'google_register': '/auth/google-register/',
     
-    // Profiles theo role
     'candidate-profile' : '/candidate/profile/',
     'employer-profile' : '/employer/profile/',
 
-    //Lookup
     'categories' : '/categories/',
     'skills' : '/skills/',
 
-    // Jobs
     'jobs' : '/jobs/',
     'job-detail': (id) => `/jobs/${id}/`,
-    'job-applications': (id) => `/jobs/${id}/applications/`, // employer xem ứng viên của job
-    'my-jobs': '/jobs/my-jobs/', // employer xem job của mình
+    'job-applications': (id) => `/jobs/${id}/applications/`, 
+    'my-jobs': '/jobs/my-jobs/', 
     
-    //Application
     'applications': '/applications/',
     'application-detail': (id) => `/applications/${id}/`,
     'application-update-status':(id) => `/applications/${id}/update-status/`,
     'application-add-note':     (id) => `/applications/${id}/add-note/`,
     
-    //Interview (lịch phỏng vấn)
     'applications-accepted': '/applications/accepted/',
     'application-schedule-interview': (id) => `/applications/${id}/schedule-interview/`,
 
-    // Companies
     'companies' : '/companies/',
     'my-companies' : '/companies/my-companies/',
     'company-detail' : (id) => `/companies/${id}/`,
 
-     // Admin — employer management
     'admin-employers':         '/admin-api/employers/',
     'admin-employers-pending': '/admin-api/employers/pending/',
     'admin-employer-approve':  (id) => `/admin-api/employers/${id}/approve/`,
@@ -57,22 +44,18 @@ export const endpoints = {
     'admin-job-approve' : (id) => `/admin-api/jobs/${id}/approve/`,
     'admin-job-reject' : (id) => `/admin-api/jobs/${id}/reject/`,
 
-    // Comparison
     'comparison' : '/comparison/',
     'comparison-detail': (id) => `/comparison/${id}/`,
     'comparison-suggest': '/comparison/suggest/',
     'comparison-add-job': (id) => `/comparison/${id}/add-job/`,
     'comparison-remove-job': (id) => `/comparison/${id}/remove-job/`,
 
-    //Package
     'packages' : '/packages/',
 
-    // Payment
     'payments' : '/payments/',
     'payment-detail' : (id) => `/payments/${id}/`,
     'create-payment-intent' : '/payments/create-payment-intent/',
 
-    //Statistics
     'admin-statistics' : '/statistics/admin/admin-dashboard/',
     'employer-statistics' : '/statistics/employer/employer-dashboard/',
 };

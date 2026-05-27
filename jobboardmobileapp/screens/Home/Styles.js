@@ -5,8 +5,6 @@ export default StyleSheet.create({
         flex: 1, 
         backgroundColor: '#f5f5f5' 
     },
-
-    // ==================== SEARCH ====================
     searchContainer: {
         backgroundColor: '#3B5BDB',
         padding: 16,
@@ -37,8 +35,6 @@ export default StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
     },
-
-    // ==================== CATEGORIES ====================
     categoryList: { 
         paddingHorizontal: 16, 
         marginVertical: 12 
@@ -62,7 +58,6 @@ export default StyleSheet.create({
     },
     categoryTextActive: { color: '#fff' },
 
-    // ==================== SECTION HEADER ====================
     sectionTitle: {
         fontSize: 18, 
         fontWeight: 'bold',
@@ -92,7 +87,6 @@ export default StyleSheet.create({
         fontWeight: '500',
     },
 
-    // ==================== SORT CHIP ====================
     sortChip: {
         backgroundColor: '#EEF2FF',
         borderRadius: 20,
@@ -105,7 +99,6 @@ export default StyleSheet.create({
         fontWeight: '600',
     },
 
-    // ==================== EMPTY / LOADING ====================
     emptyText: {
         textAlign: 'center',
         marginTop: 40,
@@ -113,7 +106,6 @@ export default StyleSheet.create({
         fontSize: 15,
     },
 
-    // ==================== JOB CARD ====================
     card: {
         backgroundColor: '#fff',
         borderRadius: 12,
@@ -124,14 +116,12 @@ export default StyleSheet.create({
         borderWidth: 1.5,
         borderColor: '#eee',
         position: 'relative',
-        overflow: 'hidden' // Giúp ribbon ko bị lồi ra ngoài góc bo tròn
+        overflow: 'hidden' 
     },
-    // STYLE KHI CÓ TIN NỔI BẬT
     cardFeatured: {
         backgroundColor: '#F0FDF4', 
         borderColor: '#22C55E',     
     },
-    // DẢI BĂNG GÓC TRÊN CÙNG
     featuredRibbon: { 
         position: 'absolute', 
         top: 0, 
@@ -151,7 +141,7 @@ export default StyleSheet.create({
     },
     cardHeader: { 
         flexDirection: 'row',
-        marginTop: 6 // Cân chỉnh lại sau khi có Ribbon
+        marginTop: 6 
     },
     logo: { 
         width: 60, 
@@ -167,7 +157,7 @@ export default StyleSheet.create({
         fontSize: 15, 
         fontWeight: '600', 
         color: '#222',
-        paddingRight: 20 // Tránh text dài bị chèn vào dải băng
+        paddingRight: 20 
     },
     companyName: { 
         fontSize: 13, 
@@ -205,7 +195,6 @@ export default StyleSheet.create({
     skillText: { fontSize: 11, color: '#555' },
     moreSkills: { fontSize: 11, color: '#888', alignSelf: 'center' },
 
-    // ==================== PAGINATOR ====================
     paginatorContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -245,7 +234,6 @@ export default StyleSheet.create({
         paddingHorizontal: 4,
     },
 
-    // ==================== COMPANY CARD ====================
     companyCard: {
         backgroundColor: '#fff',
         borderRadius: 12,
@@ -274,7 +262,6 @@ export default StyleSheet.create({
         marginTop: 4,
     },
 
-    // ==================== SORT MODAL ====================
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.35)',
@@ -317,8 +304,7 @@ export default StyleSheet.create({
         color: '#3B5BDB',
         fontWeight: '700',
     },
-    
-    // STYLE CHO CHỨC NĂNG SO SÁNH VIỆC LÀM 
+
     cardBottomRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',

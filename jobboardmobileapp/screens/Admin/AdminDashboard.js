@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  StatusBar,
-} from 'react-native';
+import {View,Text,ScrollView,TouchableOpacity,ActivityIndicator,RefreshControl,StatusBar,} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
 import AsyncStorage from "@react-native-async-storage/async-storage";

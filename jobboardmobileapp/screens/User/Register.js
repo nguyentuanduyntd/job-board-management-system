@@ -88,7 +88,6 @@ const Register = () => {
                         <Text style={styles.title}>ĐĂNG KÝ</Text>
                     </View>
 
-                    {/* Chọn vai trò */}
                     <Text style={styles.roleLabel}>Bạn là</Text>
                     <SegmentedButtons
                         value={user.role}
@@ -115,7 +114,6 @@ const Register = () => {
 
                     {err ? <HelperText type="error" visible>{err}</HelperText> : null}
 
-                    {/* Text fields */}
                     {TEXT_FIELDS.map(i => (
                         <TextInput
                             key={i.field}
@@ -132,7 +130,6 @@ const Register = () => {
                         />
                     ))}
 
-                    {/* Password */}
                     <TextInput
                         label="Mật khẩu"
                         value={user.password}
@@ -151,7 +148,6 @@ const Register = () => {
                         autoCapitalize="none"
                     />
 
-                    {/* Confirm Password */}
                     <TextInput
                         label="Xác nhận mật khẩu"
                         value={user.confirm_password}

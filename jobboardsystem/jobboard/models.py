@@ -111,8 +111,7 @@ class Job(BaseModel):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     rejection_reason = models.TextField(null=True, blank=True)
 
-    #Ranking
-    is_featured = models.BooleanField(default=False) # đánh dấu tin nổi bật sau khi được employer thanh toán
+    is_featured = models.BooleanField(default=False)
     featured_priority = models.IntegerField(default=0)
     featured_expired_at = models.DateTimeField(null=True, blank=True)
     featured_score = models.FloatField(default=0.0)
@@ -129,16 +128,13 @@ class Job(BaseModel):
          freshness_score: giảm dần theo ngày (max 100)
         random_factor: 0-10 để tránh tie hoàn toàn"""
 
-        #freshness: tin mới = điểm cao, giảm 10 point/day tối đa có 100 point
         days_old = (timezone.now() - self.created_at).days if self.created_at else 0
         freshness_score = max(0,100 - days_old * 10)
 
-        #Boost nếu gần hết hạn (còn <= 3 day)
         deadline_boost = 0
         if self.deadline:
             days_to_deadline = (self.deadline - timezone.now().date()).days
             if 0 <= days_to_deadline <= 3:
-                #đẩy mạnh lên cao khi days càng ngắn
                 deadline_boost = (3 - days_to_deadline) * 20
 
         seed = self.id or (int(self.created_at.timestamp()) if self.created_at else 0)
@@ -189,9 +185,8 @@ class Application(BaseModel):
     interview_location = models.CharField(max_length=255, null=True, blank=True)
     interview_at       = models.DateTimeField(null=True, blank=True)
     interview_note     = models.TextField(null=True, blank=True)
-    interview_map_url  = models.URLField(null=True, blank=True)  # Google Maps link
+    interview_map_url  = models.URLField(null=True, blank=True)
     interview_notified = models.BooleanField(default=False)
-    #CV priority
     is_priority = models.BooleanField(default=False)
     priority_level = models.IntegerField(default=0)
     priority_expired_at = models.DateTimeField(null=True, blank=True)
@@ -275,10 +270,10 @@ class Payment(BaseModel):
         choices=PAYMENT_TYPE_CHOICES,
         default='featured_job'
     )
-    paid_at = models.DateTimeField(null=True, blank=True) #Timestamp thanh toán
+    paid_at = models.DateTimeField(null=True, blank=True) 
     application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name='payments')
-    transaction_id = models.CharField(max_length=255,unique=True, null=True, blank=True) # mã giao dịch từ các bên thứ 3
+    transaction_id = models.CharField(max_length=255,unique=True, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     job = models.ForeignKey(Job, on_delete=models.SET_NULL,null=True,blank=True, related_name='payments')
 
@@ -296,7 +291,6 @@ class Payment(BaseModel):
         if self.job and self.application:
             raise ValidationError('Payment chỉ được có job HOẶC application, không được cả hai.')
 
-        #Validate package đúng loại
         if self.package and self.package.package_type != self.payment_type:
             raise ValidationError(
                 f'Package "{self.package.name}" không đúng loại.'

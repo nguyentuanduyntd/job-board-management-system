@@ -1,13 +1,15 @@
 import { StyleSheet } from 'react-native';
-const PRIMARY = '#3B5BDB';
+import styles, { GlobalColors } from '../../styles/Styles';
+
+const PRIMARY = GlobalColors.primary;
 
 export default StyleSheet.create({
+    ...styles,
+
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: GlobalColors.bg,
     },
-
-    // Header bar
     headerBar: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -35,8 +37,6 @@ export default StyleSheet.create({
         flex: 1,
         textAlign: 'center',
     },
-
-    // Hero
     hero: {
         backgroundColor: '#fff',
         alignItems: 'center',
@@ -87,37 +87,17 @@ export default StyleSheet.create({
         color: PRIMARY,
         fontWeight: '600',
     },
-
-    // Section
     section: {
         marginTop: 12,
         backgroundColor: '#fff',
         paddingHorizontal: 16,
         paddingVertical: 16,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#111',
-        marginBottom: 10,
-    },
-    totalCount: {
-        fontSize: 13,
-        color: '#888',
-    },
     descText: {
         fontSize: 14,
         color: '#444',
         lineHeight: 22,
     },
-
-    // Job card
     jobCard: {
         backgroundColor: '#fff',
         borderRadius: 12,
@@ -190,190 +170,72 @@ export default StyleSheet.create({
         color: '#888',
         alignSelf: 'center',
     },
-
-    // Paginator (copy từ Styles.js)
-    paginatorContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 16,
-        gap: 6,
-    },
-    pageBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        elevation: 1,
-    },
-    pageBtnActive: {
+    searchContainer: {
         backgroundColor: PRIMARY,
-        borderColor: PRIMARY,
+        padding: 16,
     },
-    pageBtnDisabled: {
-        backgroundColor: '#f5f5f5',
-        borderColor: '#eee',
+    searchRow: {
+        flexDirection: 'row',
+        gap: 8,
     },
-    pageBtnText: {
-        fontSize: 14,
+    searchInput: {
+        backgroundColor: '#fff',
+        borderRadius: 25,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        fontSize: 15,
         color: '#333',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#222',
+    },
+    totalCount: {
+        fontSize: 13,
+        color: '#888',
+    },
+    companyCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 14,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        flexDirection: 'row', 
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    companyLogo: {
+        width: 64,
+        height: 64,
+        borderRadius: 10,
+        backgroundColor: '#eee',
+    },
+    companyCardInfo: {
+        flex: 1, 
+        marginLeft: 14,
+        justifyContent: 'center',
+    },
+    companyCardName: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#222',
+        flexWrap: 'wrap', 
+    },
+    companyJobCount: {
+        fontSize: 13,
+        color: PRIMARY,
         fontWeight: '500',
     },
-    pageBtnTextActive: {
-        color: '#fff',
-    },
-    pageBtnTextDisabled: {
-        color: '#ccc',
-    },
-    pageDots: {
-        fontSize: 14,
-        color: '#888',
-        paddingHorizontal: 4,
-    },
-
-    emptyText: {
-        textAlign: 'center',
-        marginTop: 24,
-        color: '#888',
-        fontSize: 14,
-    },
-
-    // ==================== THANH TÌM KIẾM ====================
-  searchContainer: {
-    backgroundColor: '#3B5BDB',
-    padding: 16,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  searchInput: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: '#333',
-  },
-
-  // ==================== TIÊU ĐỀ PHÂN ĐOẠN ====================
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#222',
-  },
-  totalCount: {
-    fontSize: 13,
-    color: '#888',
-  },
-
-  // Trạng thái trống hoặc lỗi
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 40,
-    color: '#888',
-    fontSize: 15,
-  },
-
-  // ==================== THẺ CÔNG TY (COMPANY CARD) ====================
-  // Tối ưu hóa layout dạng list hàng dọc
-  companyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    flexDirection: 'row', // Hiển thị theo hàng ngang
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  companyLogo: {
-    width: 64,
-    height: 64,
-    borderRadius: 10,
-    backgroundColor: '#eee',
-  },
-  // Khối bọc text nằm bên phải Logo
-  companyCardInfo: {
-    flex: 1, // Chiếm hết không gian còn lại
-    marginLeft: 14,
-    justifyContent: 'center',
-  },
-  companyCardName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#222',
-    // Cài đặt để văn bản không tràn ra ngoài
-    flexWrap: 'wrap', // Cho phép xuống dòng
-    numberOfLines: 2, // Hiển thị tối đa 2 dòng
-    // ellipseMode: 'tail', // Cắt bớt phần văn bản thừa và thêm dấu ba chấm
-  },
-  companyJobCount: {
-    fontSize: 13,
-    color: '#3B5BDB',
-    fontWeight: '500',
-  },
-
-  // ==================== PHÂN TRANG (PAGINATOR) ====================
-  paginatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 6,
-  },
-  pageBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-  },
-  pageBtnActive: {
-    backgroundColor: '#3B5BDB',
-    borderColor: '#3B5BDB',
-  },
-  pageBtnDisabled: {
-    backgroundColor: '#f5f5f5',
-    borderColor: '#eee',
-  },
-  pageBtnText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  pageBtnTextActive: {
-    color: '#fff',
-  },
-  pageBtnTextDisabled: {
-    color: '#ccc',
-  },
-  pageDots: {
-    fontSize: 14,
-    color: '#888',
-    paddingHorizontal: 4,
-  },
 });

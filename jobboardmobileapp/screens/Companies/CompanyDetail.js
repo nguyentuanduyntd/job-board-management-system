@@ -1,28 +1,24 @@
 import { useEffect, useState } from 'react';
 import {
-    View, Text, Image, ScrollView, TouchableOpacity,
-    ActivityIndicator, StyleSheet, Linking
+    View, Text, Image, TouchableOpacity,
+    ActivityIndicator, ScrollView, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Apis, { endpoints } from '../../configs/Apis';
-import styles from './Styles'
+import styles from './Styles';
 import { Ionicons } from '@expo/vector-icons';
 
 const PRIMARY = '#3B5BDB';
-const PAGE_SIZE = 10;
 
 function CompanyDetail({ route, navigation }) {
     const { companyId } = route.params;
 
-    const [company, setCompany]     = useState(null);
-    const [jobs, setJobs]           = useState([]);
-    const [loading, setLoading]     = useState(true);
+    const [company, setCompany] = useState(null);
+    const [jobs, setJobs]       = useState([]);
+    const [loading, setLoading] = useState(true);
     const [jobLoading, setJobLoading] = useState(false);
-    const [page, setPage]           = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalJobs, setTotalJobs] = useState(0);
+    const [totalJobs, setTotalJobs]   = useState(0);
 
-    // ==================== LOAD COMPANY ====================
     const loadCompany = async () => {
         try {
             const res = await Apis.get(`${endpoints['companies']}${companyId}/`);
@@ -34,18 +30,16 @@ function CompanyDetail({ route, navigation }) {
         }
     };
 
-    // ==================== LOAD JOBS ====================
-    const loadJobs = async (p = 1) => {
+    const loadJobs = async () => {
         try {
             setJobLoading(true);
             const res = await Apis.get(
-                `${endpoints['jobs']}?company=${companyId}&page=${p}`
+                `${endpoints['jobs']}?company=${companyId}&page_size=100`
             );
-            const count = res.data?.count ?? 0;
+            const data = res.data?.results ?? (Array.isArray(res.data) ? res.data : []);
+            const count = res.data?.count ?? data.length;
+            setJobs(data);
             setTotalJobs(count);
-            setTotalPages(Math.ceil(count / PAGE_SIZE));
-            setJobs(res.data?.results ?? []);
-            setPage(p);
         } catch (ex) {
             console.error('Load jobs error:', ex.message);
         } finally {
@@ -55,63 +49,9 @@ function CompanyDetail({ route, navigation }) {
 
     useEffect(() => {
         loadCompany();
-        loadJobs(1);
+        loadJobs();
     }, [companyId]);
 
-    // ==================== PAGINATOR ====================
-    const Paginator = () => {
-        if (totalPages <= 1) return null;
-
-        const getPages = () => {
-            let pages = [];
-            let start = Math.max(1, page - 2);
-            let end   = Math.min(totalPages, page + 2);
-            if (start > 1) pages.push(1);
-            if (start > 2) pages.push('...');
-            for (let i = start; i <= end; i++) pages.push(i);
-            if (end < totalPages - 1) pages.push('...');
-            if (end < totalPages) pages.push(totalPages);
-            return pages;
-        };
-
-        return (
-            <View style={styles.paginatorContainer}>
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
-                    onPress={() => loadJobs(page - 1)}
-                    disabled={page === 1}
-                >
-                    <Text style={[styles.pageBtnText, page === 1 && styles.pageBtnTextDisabled]}>‹</Text>
-                </TouchableOpacity>
-
-                {getPages().map((p2, i) =>
-                    p2 === '...' ? (
-                        <Text key={`dot-${i}`} style={styles.pageDots}>...</Text>
-                    ) : (
-                        <TouchableOpacity
-                            key={p2}
-                            style={[styles.pageBtn, page === p2 && styles.pageBtnActive]}
-                            onPress={() => loadJobs(p2)}
-                        >
-                            <Text style={[styles.pageBtnText, page === p2 && styles.pageBtnTextActive]}>
-                                {p2}
-                            </Text>
-                        </TouchableOpacity>
-                    )
-                )}
-
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
-                    onPress={() => loadJobs(page + 1)}
-                    disabled={page === totalPages}
-                >
-                    <Text style={[styles.pageBtnText, page === totalPages && styles.pageBtnTextDisabled]}>›</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
-    // ==================== JOB CARD ====================
     const JobCard = ({ job }) => (
         <TouchableOpacity
             style={[styles.jobCard, job.is_featured && styles.featuredCard]}
@@ -119,7 +59,7 @@ function CompanyDetail({ route, navigation }) {
         >
             {job.is_featured && (
                 <View style={styles.featuredBadge}>
-                    <Text style={styles.featuredBadgeText}>⭐ Nổi bật</Text>
+                    <Text style={styles.featuredBadgeText}>Nổi bật</Text>
                 </View>
             )}
 
@@ -170,7 +110,6 @@ function CompanyDetail({ route, navigation }) {
         </TouchableOpacity>
     );
 
-    // ==================== LOADING ====================
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
@@ -187,10 +126,8 @@ function CompanyDetail({ route, navigation }) {
         );
     }
 
-    // ==================== RENDER ====================
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header bar */}
             <View style={styles.headerBar}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Text style={styles.backBtnText}>‹</Text>
@@ -200,7 +137,6 @@ function CompanyDetail({ route, navigation }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Company hero */}
                 <View style={styles.hero}>
                     <Image
                         source={{ uri: company.logo_url || 'https://via.placeholder.com/100' }}
@@ -210,8 +146,8 @@ function CompanyDetail({ route, navigation }) {
 
                     {!!company.address && (
                         <View style={styles.heroMeta}>
-                            <Text style={styles.heroMetaText}>
-                                <Ionicons name="location" size={14} color="#6B7280" style={{ marginRight: 8 }}/>
+                            <Ionicons name="location" size={14} color="#6B7280" />
+                            <Text style={[styles.heroMetaText, { marginLeft: 4 }]}>
                                 {company.address}
                             </Text>
                         </View>
@@ -228,7 +164,6 @@ function CompanyDetail({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* Description */}
                 {!!company.description && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Giới thiệu công ty</Text>
@@ -236,27 +171,26 @@ function CompanyDetail({ route, navigation }) {
                     </View>
                 )}
 
-                {/* Jobs */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Việc làm đang tuyển</Text>
-                        {totalJobs > 0 && (
-                            <Text style={styles.totalCount}>{totalJobs} việc</Text>
-                        )}
-                    </View>
-
-                    {jobLoading ? (
-                        <ActivityIndicator size="large" color={PRIMARY} style={{ marginTop: 24 }} />
-                    ) : jobs.length === 0 ? (
-                        <Text style={styles.emptyText}>Công ty chưa có việc làm nào.</Text>
-                    ) : (
-                        jobs.map(job => <JobCard key={job.id.toString()} job={job} />)
+                <View style={[styles.sectionHeader, { marginHorizontal: 16, marginTop: 16, marginBottom: 8 }]}>
+                    <Text style={styles.sectionTitle}>Việc làm đang tuyển</Text>
+                    {totalJobs > 0 && (
+                        <Text style={styles.totalCount}>{totalJobs} việc</Text>
                     )}
-
-                    {!jobLoading && <Paginator />}
                 </View>
 
-                <View style={{ height: 24 }} />
+                {jobLoading ? (
+                    <ActivityIndicator size="large" color={PRIMARY} style={{ paddingVertical: 20 }} />
+                ) : jobs.length === 0 ? (
+                    <Text style={[styles.emptyText, { marginBottom: 30 }]}>
+                        Công ty chưa có việc làm nào.
+                    </Text>
+                ) : (
+                    <View style={{ paddingHorizontal: 16, paddingBottom: 30 }}>
+                        {jobs.map(job => (
+                            <JobCard key={job.id.toString()} job={job} />
+                        ))}
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );

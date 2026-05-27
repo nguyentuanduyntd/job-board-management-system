@@ -17,28 +17,18 @@ router.register(r'packages', views.PackageViewSet, basename='package')
 router.register(r'statistics/admin', views.AdminStatisticsViewSet, basename='admin-statistics')
 router.register(r'statistics/employer', views.EmployerStatisticsViewSet, basename='employer-statistics')
 urlpatterns = [
-    # Auth
     path('auth/register/', views.RegisterView.as_view()),
-    #Lấy token
     path('auth/login/', oauth2_views.TokenView.as_view()),
     path('auth/change-password', views.ChangePasswordView.as_view()),
-    #Refresh token
     path('auth/token/refresh/', oauth2_views.TokenView.as_view()),
-    #thu hồi token
     path('auth/revoke/', oauth2_views.RevokeTokenView.as_view()),
     path('auth/profile/', views.ProfileView.as_view()),
-    
-    path('auth/google-login/',    views.GoogleLoginView.as_view()),
-    path('auth/google-register/', views.GoogleRegisterView.as_view()),
 
-    # Profiles theo role
     path('candidate/profile/', views.CandidateProfileView.as_view()),
     path('employer/profile/', views.EmployerProfileView.as_view()),
 
-    # Lookup
     path('categories/', views.JobCategoryListView.as_view()),
     path('skills/', views.SkillListView.as_view()),
-
 
     path('', include(router.urls)),
 ]

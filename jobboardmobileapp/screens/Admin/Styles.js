@@ -224,7 +224,6 @@ export const approvalStyles = StyleSheet.create({
     backgroundColor: Colors.bg 
   },
 
-  // Header Component
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -259,7 +258,6 @@ export const approvalStyles = StyleSheet.create({
     color: Colors.accent 
   },
 
-  // Segmented Tabs Control
   tabScroll: { 
     backgroundColor: Colors.surface, 
     borderBottomWidth: 1, 
@@ -299,13 +297,11 @@ export const approvalStyles = StyleSheet.create({
     fontWeight: '700' 
   },
 
-  // List Wrapper
   listContent: { 
     paddingHorizontal: 16, 
     paddingTop: 12 
   },
 
-  // Render Item Cards
   card: { 
     backgroundColor: Colors.surface, 
     borderRadius: 12, 
@@ -378,7 +374,6 @@ export const approvalStyles = StyleSheet.create({
     color: Colors.textMuted 
   },
 
-  // Action Triggers Component
   quickActions: { 
     flexDirection: 'row', 
     gap: 8 
@@ -408,7 +403,6 @@ export const approvalStyles = StyleSheet.create({
     color: '#fff' 
   },
 
-  // Rejection Details Box
   rejectionNote: { 
     marginTop: 10, 
     padding: 10, 
@@ -428,7 +422,6 @@ export const approvalStyles = StyleSheet.create({
     color: '#991B1B' 
   },
 
-  // Fallback View State
   empty: { 
     alignItems: 'center', 
     paddingVertical: 60 
@@ -449,7 +442,6 @@ export const approvalStyles = StyleSheet.create({
     textAlign: 'center' 
   },
 
-  // Reject Prompt Modal View
   overlay: { 
     flex: 1, 
     backgroundColor: 'rgba(0,0,0,0.5)', 
@@ -540,7 +532,6 @@ export const approvalStyles = StyleSheet.create({
     color: '#fff' 
   },
 
-  // Bottom Sheet Profile Detail Modal
   detailOverlay: { 
     flex: 1, 
     backgroundColor: 'rgba(0,0,0,0.45)', 

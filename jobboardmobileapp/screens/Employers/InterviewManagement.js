@@ -1,8 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import {
-    View, Text, FlatList, TouchableOpacity, Modal, TextInput,
-    Alert, ActivityIndicator, RefreshControl, ScrollView, Platform,
-    Linking, Switch
+import {View, Text, FlatList, TouchableOpacity, Modal, TextInput,Alert, ActivityIndicator, RefreshControl, ScrollView, Platform,Linking, Switch
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,8 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { authApi, endpoints } from '../../configs/Apis';
 import { Ionicons } from '@expo/vector-icons';
 import S, { Colors } from './Styles';
-
-// 🌟 BỔ SUNG: Import Hook và Component phân trang của bạn
 import usePagination from '../../hooks/usePagination'; 
 import Paginator from '../../components/Paginator';
 
@@ -49,7 +44,6 @@ export default function InterviewManagement({ navigation }) {
     const [saving, setSaving]               = useState(false);
     const [sendEmail, setSendEmail]         = useState(true);
 
-    // Tự động tải lại trang 1 mỗi khi màn hình được Focus quay lại
     useFocusEffect(
         useCallback(() => {
             loadPaginationData(1);
@@ -121,7 +115,6 @@ export default function InterviewManagement({ navigation }) {
                     : 'Lịch phỏng vấn đã được lưu.',
             );
             closeModal();
-            // Tải lại trang hiện tại sau khi lưu thành công để cập nhật trạng thái badge
             loadPaginationData(page);
         } catch (err) {
             const msg = err.response?.data?.error

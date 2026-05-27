@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import usePagination from '../../hooks/usePagination';
 import Paginator from '../../components/Paginator';
 
-// ─── Rejection Modal (ĐB ĐÃ SỬA CHỐNG BÀN PHÍM CHE KHUẤT) ─────────────────────
 const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
     const [reason, setReason] = useState('');
  
@@ -66,7 +65,6 @@ const RejectModal = ({ visible, jobTitle, onConfirm, onCancel, loading }) => {
     );
 };
  
-// ─── Job Detail Modal ─────────────────────────────────────────────────────────
 const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoading }) => {
     if (!job) return null;
  
@@ -211,7 +209,6 @@ const JobDetailModal = ({ visible, job, onClose, onApprove, onReject, actionLoad
     );
 };
  
-// ─── Job Card ─────────────────────────────────────────────────────────────────
 const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
     const isPending  = job.status === 'pending';
  
@@ -294,7 +291,6 @@ const JobCard = ({ job, onPress, onApprove, onReject, actionLoading }) => {
     );
 };
  
-// ─── Filter Tabs ──────────────────────────────────────────────────────────────
 const TABS = [
     { key: 'pending',  label: 'Chờ duyệt', color: C.pending  },
     { key: 'approved', label: 'Đã duyệt',  color: C.approved },
@@ -302,7 +298,6 @@ const TABS = [
     { key: 'all',      label: 'Tất cả',    color: C.accent   },
 ];
  
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AdminJobApproval() {
     const [activeTab, setActiveTab] = useState('pending');
     const [selectedJob, setSelectedJob] = useState(null);
@@ -311,31 +306,26 @@ export default function AdminJobApproval() {
     const [rejectTarget, setRejectTarget] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
  
-    // Xây dựng tham số lọc động gửi lên API dựa trên Tab đang chọn
     const extraParams = activeTab !== 'all' ? `&status=${activeTab}` : '';
 
-    // Khởi tạo hệ thống quản lý phân trang (mặc định hiển thị 10 bài viết / trang)
     const { data: jobs, setData: setJobs, loading, refreshing, page, totalPages, count, load, refresh } =
         usePagination(endpoints['admin-jobs'], 10, extraParams);
  
-    // Kích hoạt load lại dữ liệu trang 1 khi chuyển đổi Tab lọc trạng thái
     useEffect(() => {
         load(1);
     }, [activeTab]);
- 
-    // Approve 
+
     const handleApprove = useCallback(async (job) => {
         try {
             setActionLoading(job.id);
             const token = await AsyncStorage.getItem('token');
             await authApi(token).patch(endpoints['admin-job-approve'](job.id));
-            
-            // Cập nhật trạng thái trực tiếp trên danh sách hiện tại
+    
             setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'approved' } : j));
             if (showDetail) setSelectedJob(prev => prev ? { ...prev, status: 'approved' } : prev);
             
             Alert.alert('✓ Đã duyệt', `Bài đăng "${job.title}" đã được duyệt.`);
-            refresh(); // Làm mới số đếm dữ liệu tổng
+            refresh();
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể duyệt bài đăng.';
             Alert.alert('Lỗi', msg);
@@ -344,14 +334,12 @@ export default function AdminJobApproval() {
         }
     }, [showDetail, refresh]);
  
-    // Open reject modal 
     const handleOpenReject = useCallback((job) => {
         setRejectTarget(job);
         setShowDetail(false);
         setShowReject(true);
     }, []);
  
-    // Confirm reject 
     const handleConfirmReject = useCallback(async (reason) => {
         if (!rejectTarget) return;
         try {
@@ -367,7 +355,7 @@ export default function AdminJobApproval() {
             setShowReject(false);
             setRejectTarget(null);
             Alert.alert('Đã từ chối', `Bài đăng "${rejectTarget.title}" đã bị từ chối.`);
-            refresh(); // Đọc lại dữ liệu để đồng bộ badge đếm số lượng bài đăng
+            refresh();
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể từ chối bài đăng.';
             Alert.alert('Lỗi', msg);
@@ -376,7 +364,6 @@ export default function AdminJobApproval() {
         }
     }, [rejectTarget, refresh]);
  
-    // ── Empty state ────────────────────────────────────────────────────────────
     const EmptyState = () => (
         <View style={s.empty}>
             <Text style={s.emptyIcon}>
@@ -397,7 +384,6 @@ export default function AdminJobApproval() {
  
     return (
         <SafeAreaView style={s.root}>
-            {/* ── Header ── */}
             <View style={s.header}>
                 <View>
                     <Text style={s.headerTitle}>Duyệt bài đăng</Text>
@@ -409,8 +395,7 @@ export default function AdminJobApproval() {
                     <Text style={s.refreshBtnText}>↻</Text>
                 </TouchableOpacity>
             </View>
- 
-            {/* ── Filter Tabs ── */}
+
             <View style={{ maxHeight: 50 }}>
                 <ScrollView
                     horizontal
@@ -434,8 +419,7 @@ export default function AdminJobApproval() {
                     })}
                 </ScrollView>
             </View>
- 
-            {/* ── List Bài Đăng Tối Ưu Với FlatList ── */}
+
             {loading && !refreshing ? (
                 <View style={s.centered}>
                     <ActivityIndicator size="large" color={C.accent} />
@@ -459,14 +443,14 @@ export default function AdminJobApproval() {
                         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />
                     }
                     ListEmptyComponent={<EmptyState />}
-                    ListFooterComponent={<View style={{ height: 16 }} />}
+                    ListFooterComponent={
+                        <View style={{ paddingBottom: 16 }}>
+                            <Paginator page={page} totalPages={totalPages} onGoTo={load} />
+                        </View>
+                    }
                 />
             )}
 
-            {/* Thanh hiển thị phân trang dưới đáy màn hình */}
-            <Paginator page={page} totalPages={totalPages} onGoTo={load} />
- 
-            {/* ── Detail Modal ── */}
             <JobDetailModal
                 visible={showDetail}
                 job={selectedJob}
@@ -476,7 +460,6 @@ export default function AdminJobApproval() {
                 actionLoading={actionLoading !== null && actionLoading !== 'modal'}
             />
  
-            {/* ── Reject Modal ── */}
             <RejectModal
                 visible={showReject}
                 jobTitle={rejectTarget?.title || ''}

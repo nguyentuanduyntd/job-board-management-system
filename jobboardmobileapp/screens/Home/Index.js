@@ -1,8 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import {
-    View, Text, FlatList, TextInput,
-    TouchableOpacity, Image, ScrollView,
-    ActivityIndicator, Modal, Alert, RefreshControl 
+import {View, Text, FlatList, TextInput,TouchableOpacity, Image, ScrollView,ActivityIndicator, Modal, Alert, RefreshControl 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,7 +7,7 @@ import Apis, { authApi, endpoints } from '../../configs/Apis';
 import { useMyUser } from '../../configs/Contexts';
 import styles from './Styles';
 import { Ionicons } from '@expo/vector-icons';
-
+import Paginator from '../../components/Paginator';
 const PAGE_SIZE = 10;
 
 const SORT_OPTIONS = [
@@ -29,7 +26,7 @@ export default function HomeScreen({ navigation }) {
     const [featuredCompanies, setFeaturedCompanies] = useState([]);
     const [keyword, setKeyword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [refreshing, setRefreshing] = useState(false); // 2. Thêm state quản lý hiệu ứng kéo làm mới dữ liệu
+    const [refreshing, setRefreshing] = useState(false); 
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [sortBy, setSortBy] = useState(SORT_OPTIONS[0]);
     const [showSortModal, setShowSortModal] = useState(false);
@@ -37,17 +34,13 @@ export default function HomeScreen({ navigation }) {
     const [totalPages, setTotalPages] = useState(1);
     const [totalJobs, setTotalJobs] = useState(0);
 
-    // STATE PHỤC VỤ CHỨC NĂNG SO SÁNH
     const [compareJobs, setCompareJobs] = useState([]);
     const [showCompareModal, setShowCompareModal] = useState(false);
 
-    // Ref để tránh gọi API trùng khi filter thay đổi + page reset cùng lúc
     const isFilterChanging = useRef(false);
 
-    // ==================== LOAD JOBS ====================
     const loadJobs = useCallback(async (currentPage, currentKeyword, currentCategory, currentSort, isPullToRefresh = false) => {
         try {
-            // Nếu là kéo xuống refresh thì không bật cái xoay loading to đùng ở giữa màn hình để tránh lỗi giao diện
             if (!isPullToRefresh) setLoading(true);
             
             let url = `${endpoints['jobs']}?page=${currentPage}&ordering=${currentSort.value}`;
@@ -64,18 +57,16 @@ export default function HomeScreen({ navigation }) {
             setJobs([]);
         } finally {
             setLoading(false);
-            setRefreshing(false); // Tắt hiệu ứng kéo xoay khi API hoàn tất
+            setRefreshing(false);
         }
     }, []);
 
-    // ==================== HANDLE PULL TO REFRESH ====================
     const handleRefresh = useCallback(() => {
         setRefreshing(true);
-        setPage(1); // Ép trạng thái trang về 1
+        setPage(1);
         loadJobs(1, keyword, selectedCategory, sortBy, true);
     }, [keyword, selectedCategory, sortBy, loadJobs]);
 
-    // ==================== LOAD CATEGORIES ====================
     const loadCategories = useCallback(async () => {
         try {
             const res = await Apis.get(endpoints['categories']);
@@ -85,7 +76,6 @@ export default function HomeScreen({ navigation }) {
         }
     }, []);
 
-    // ==================== LOAD FEATURED COMPANIES ====================
     const companiesLoaded = useRef(false);
 
     const loadFeaturedCompanies = useCallback(async () => {
@@ -95,10 +85,8 @@ export default function HomeScreen({ navigation }) {
             const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
             const companies = data.slice(0, 6);
 
-            // Hiển thị ngay logo/tên trước khi có job_count
             setFeaturedCompanies(companies.map(c => ({ ...c, job_count: null })));
 
-            // Fetch job_count tuần tự (sequential) thay vì Promise.all để tránh bùng nổ request
             const withCounts = [];
             for (const company of companies) {
                 try {
@@ -115,19 +103,16 @@ export default function HomeScreen({ navigation }) {
         }
     }, []);
 
-    // ==================== MOUNT: load static data 1 lần ====================
     useEffect(() => {
         loadCategories();
         loadFeaturedCompanies();
     }, []);
 
-    // ==================== KHI FILTER THAY ĐỔI: reset page về 1 ====================
     useEffect(() => {
         isFilterChanging.current = true;
         setPage(1);
     }, [keyword, selectedCategory, sortBy]);
 
-    // ==================== KHI PAGE THAY ĐỔI: load jobs ====================
     useEffect(() => {
         if (isFilterChanging.current && page === 1) {
             isFilterChanging.current = false;
@@ -139,15 +124,12 @@ export default function HomeScreen({ navigation }) {
         }
     }, [page, keyword, selectedCategory, sortBy, loadJobs]);
 
-    // ==================== FOCUS: reload jobs khi quay lại màn hình ====================
-    // 3. FIX LỖI: Thêm đầy đủ dependency array giúp tránh vòng lặp re-render vô hạn làm sập app
     useFocusEffect(
         useCallback(() => {
             loadJobs(page, keyword, selectedCategory, sortBy);
         }, [page, keyword, selectedCategory, sortBy, loadJobs])
     );
 
-    // ==================== LOGIC XỬ LÝ SO SÁNH ====================
     const toggleCompareJob = (job) => {
         if (!user || user.role !== 'candidate') {
             Alert.alert("Thông báo", "Vui lòng đăng nhập tài khoản Ứng viên để sử dụng chức năng so sánh!");
@@ -189,63 +171,11 @@ export default function HomeScreen({ navigation }) {
         }
     };
 
-    // ==================== PAGINATOR ====================
     const handlePageChange = (newPage) => {
         if (newPage < 1 || newPage > totalPages) return;
         setPage(newPage);
     };
 
-    const Paginator = () => {
-        if (totalPages <= 1) return null;
-
-        const getPageNumbers = () => {
-            const pages = [];
-            const start = Math.max(1, page - 2);
-            const end = Math.min(totalPages, page + 2);
-            if (start > 1) pages.push(1);
-            if (start > 2) pages.push('...');
-            for (let i = start; i <= end; i++) pages.push(i);
-            if (end < totalPages - 1) pages.push('...');
-            if (end < totalPages) pages.push(totalPages);
-            return pages;
-        };
-
-        return (
-            <View style={styles.paginatorContainer}>
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
-                    onPress={() => handlePageChange(page - 1)}
-                    disabled={page === 1}
-                >
-                    <Ionicons name="chevron-back" size={16} color={page === 1 ? "#ccc" : "#333"} />
-                </TouchableOpacity>
-
-                {getPageNumbers().map((p, index) =>
-                    p === '...' ? (
-                        <Text key={`dot-${index}`} style={styles.pageDots}>...</Text>
-                    ) : (
-                        <TouchableOpacity
-                            key={p}
-                            style={[styles.pageBtn, page === p && styles.pageBtnActive]}
-                            onPress={() => handlePageChange(p)}
-                        >
-                            <Text style={[styles.pageBtnText, page === p && styles.pageBtnTextActive]}>{p}</Text>
-                        </TouchableOpacity>
-                    )
-                )}
-
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
-                    onPress={() => handlePageChange(page + 1)}
-                    disabled={page === totalPages}
-                >
-                    <Ionicons name="chevron-forward" size={16} color={page === totalPages ? "#ccc" : "#333"} />
-                </TouchableOpacity>
-            </View>
-        );
-    };
-
-    // ==================== JOB CARD COMPONENT ====================
     const JobCard = ({ job }) => {
         const isFeatured = Boolean(job.is_featured);
         const isBeingCompared = compareJobs.some(j => j.id === job.id);
@@ -265,6 +195,11 @@ export default function HomeScreen({ navigation }) {
                     <View style={styles.cardHeader}>
                         <Image source={{ uri: job.company_logo }} style={styles.logo} />
                         <View style={styles.cardInfo}>
+                            {isFeatured && (
+                                <View style={styles.featuredRibbon}>
+                                    <Text style={styles.featuredRibbonText}>NỔI BẬT</Text>
+                                </View>
+                            )}
                             <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
                             <Text style={styles.companyName} numberOfLines={1}>{job.company_name ?? ''}</Text>
                             <Text style={styles.salary}>
@@ -333,7 +268,6 @@ export default function HomeScreen({ navigation }) {
         );
     };
 
-    // ==================== FEATURED COMPANY CARD ====================
     const FeaturedCompanyCard = ({ company }) => (
         <TouchableOpacity
             style={styles.companyCard}
@@ -350,7 +284,6 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    // ==================== SORT MODAL ====================
     const SortModal = () => (
         <Modal transparent visible={showSortModal} animationType="fade" onRequestClose={() => setShowSortModal(false)}>
             <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowSortModal(false)}>
@@ -373,7 +306,6 @@ export default function HomeScreen({ navigation }) {
         </Modal>
     );
 
-    // ==================== JOB COMPARISON MODAL ====================
     const JobComparisonModal = () => {
         if (!showCompareModal) return null;
 
@@ -391,7 +323,6 @@ export default function HomeScreen({ navigation }) {
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-                        {/* Header: logo + tên */}
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                             {compareJobs.map((item, idx) => (
                                 <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
@@ -415,7 +346,7 @@ export default function HomeScreen({ navigation }) {
                             ))}
                         </ScrollView>
 
-                        <Text style={styles.compareSectionTitle}>📍 Địa điểm</Text>
+                        <Text style={styles.compareSectionTitle}> Địa điểm</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                             {compareJobs.map((item, idx) => (
                                 <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
@@ -456,7 +387,7 @@ export default function HomeScreen({ navigation }) {
 
                         {compareJobs.some(j => j.requirements) && (
                             <>
-                                <Text style={styles.compareSectionTitle}>📝 Yêu cầu ứng viên</Text>
+                                <Text style={styles.compareSectionTitle}>Yêu cầu ứng viên</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                                     {compareJobs.map((item, idx) => (
                                         <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
@@ -469,7 +400,7 @@ export default function HomeScreen({ navigation }) {
 
                         {compareJobs.some(j => j.benefits) && (
                             <>
-                                <Text style={styles.compareSectionTitle}>🎁 Chế độ đãi ngộ</Text>
+                                <Text style={styles.compareSectionTitle}>Chế độ đãi ngộ</Text>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.compareScrollRow}>
                                     {compareJobs.map((item, idx) => (
                                         <View key={item.id} style={[styles.compareColumn, { borderLeftWidth: idx > 0 ? 1 : 0, borderColor: '#eee' }]}>
@@ -485,7 +416,6 @@ export default function HomeScreen({ navigation }) {
         );
     };
 
-    // ==================== MAIN RENDER ====================
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.searchContainer}>
@@ -506,19 +436,17 @@ export default function HomeScreen({ navigation }) {
             <SortModal />
             <JobComparisonModal />
 
-            {/* 4. TỐI ƯU GIAO DIỆN: Bọc ScrollView chính bằng bộ RefreshControl kéo-để-tải-mới mượt mà */}
             <ScrollView 
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl 
                         refreshing={refreshing} 
                         onRefresh={handleRefresh} 
-                        colors={["#3B5BDB"]} // Màu loader trên Android
-                        tintColor="#3B5BDB"  // Màu loader trên iOS
+                        colors={["#3B5BDB"]}
+                        tintColor="#3B5BDB" 
                     />
                 }
             >
-                {/* Categories */}
                 {categories.length > 0 && (
                     <>
                         <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ngành nghề</Text>
@@ -542,7 +470,6 @@ export default function HomeScreen({ navigation }) {
                     </>
                 )}
 
-                {/* Job list header */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Việc làm nổi bật</Text>
                     <View style={styles.jobHeaderRight}>
@@ -553,7 +480,6 @@ export default function HomeScreen({ navigation }) {
                     </View>
                 </View>
 
-                {/* Jobs List */}
                 {loading && !refreshing ? (
                     <ActivityIndicator size="large" color="#3B5BDB" style={{ marginTop: 40 }} />
                 ) : jobs.length === 0 ? (
@@ -562,9 +488,14 @@ export default function HomeScreen({ navigation }) {
                     jobs.map(job => <JobCard key={job.id.toString()} job={job} />)
                 )}
 
-                {!loading && <Paginator />}
+                {!loading && (
+                    <Paginator
+                        page={page}
+                        totalPages={totalPages}
+                        onGoTo={handlePageChange}
+                    />
+                )}
 
-                {/* Featured Companies */}
                 {featuredCompanies.length > 0 && (
                     <>
                         <View style={styles.sectionHeader}>
@@ -587,7 +518,6 @@ export default function HomeScreen({ navigation }) {
                 <View style={{ height: compareJobs.length > 0 ? 80 : 20 }} />
             </ScrollView>
 
-            {/* THANH TRẠNG THÁI NỔI CHỌN SO SÁNH */}
             {compareJobs.length > 0 && (
                 <View style={styles.floatingCompareBar}>
                     <View style={{ flex: 1 }}>
@@ -601,7 +531,7 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.clearCompareText}>Xóa</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.actionCompareBtn} onPress={handleSyncAndOpenCompare}>
-                            <Text style={styles.actionCompareText}>So sánh ⚖️</Text>
+                            <Text style={styles.actionCompareText}>So sánh </Text>
                         </TouchableOpacity>
                     </View>
                 </View>

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # ─── SERVICE 1: BROKER RABBITMQ ───
   rabbitmq:
     image: rabbitmq:3-management
     container_name: jobboard_rabbitmq
@@ -12,8 +11,7 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
 
   
-  # ─── SERVICE 2: DJANGO WEB API ───
-  web:
+  django:
     build: ./jobboardsystem
     container_name: jobboard_webapi
     command: python manage.py runserver 0.0.0.0:8000
@@ -27,7 +25,6 @@ services:
       - rabbitmq
       - redis 
 
-  # ─── SERVICE 3: CELERY WORKER (Xử lý tác vụ ngầm) ───
   celery_worker:
     build: ./jobboardsystem
     container_name: jobboard_celery
@@ -39,9 +36,8 @@ services:
     depends_on:
       - rabbitmq
       - redis 
-      - web
+      - django
 
-  # ─── SERVICE 4: FLOWER (Giám sát Celery) ───
   flower:
     build: ./jobboardsystem
     container_name: jobboard_flower
@@ -53,9 +49,8 @@ services:
     depends_on:
       - rabbitmq
       - redis 
-      - web
+      - django
   
-  # ─── SERVICE 5: REDIS ───
   redis:
     image: redis:7.2-alpine
     container_name: jobboard_redis
@@ -64,7 +59,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data 
-    command: redis-server --appendonly yes # Bật chế độ lưu dữ liệu xuống ổ đĩa tránh bị mất khi sập nguồn
+    command: redis-server --appendonly yes
 
       
 volumes:

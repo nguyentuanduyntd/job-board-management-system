@@ -8,7 +8,6 @@ from .models import (
 
 User = get_user_model()
 
-#Success
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True)
@@ -32,16 +31,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         user = User.objects.create_user(**validated_data)
 
-        # tạo EmployerProfile khi đăng ký tk với role employer
         if user.role == 'employer':
             EmployerProfile.objects.create(user=user)
 
         return user
-#Update again
-#Success
+
 class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
-    #Thêm write_only để upload avatar từ CloudinaryField
     avatar = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
@@ -54,7 +50,6 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.avatar.url
         return None
 
-    #Thêm cái update để xử lý việc lưu avatar khi update lại user
     def update(self, instance, validated_data):
         avatar = validated_data.pop('avatar',None)
         instance = super().update(instance, validated_data)
@@ -63,29 +58,19 @@ class UserSerializer(serializers.ModelSerializer):
             instance.save()
         return instance
 
-
-# SKILL
-#Success
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = ['id', 'name']
 
-#Category
-#Success
 class JobCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = JobCategory
         fields = ['id', 'name']
 
-# COMPANY
-#Success
 class CompanySerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
-
-    #Thêm MethodField để trả URL tuyệt dối
     logo_url = serializers.SerializerMethodField()
-    #Giữ logo là write_only để upload
     logo = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
@@ -102,9 +87,7 @@ class CompanySerializer(serializers.ModelSerializer):
     def get_job_count(self, obj):
         return obj.jobs.filter(is_active=True, status='approved').count()
 
-# JOB
 class JobListSerializer(serializers.ModelSerializer):
-    # Dùng cho danh sách jobs
     accepted_count = serializers.SerializerMethodField()
     company_name = serializers.CharField(source='company.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -123,7 +106,7 @@ class JobListSerializer(serializers.ModelSerializer):
     
     def get_company_logo(self, obj):
         if obj.company and obj.company.logo:
-            return obj.company.logo.url # Trả về link Cloudinary
+            return obj.company.logo.url
         return None
     
     def get_accepted_count(self, obj):
@@ -133,12 +116,10 @@ class JobListSerializer(serializers.ModelSerializer):
             return 0
 
 class JobDetailSerializer(serializers.ModelSerializer):
-    # Dùng cho chi tiết job, tạo, sửa
     company = CompanySerializer(read_only=True)
     category = JobCategorySerializer(read_only=True)
     skills = SkillSerializer(many=True, read_only=True)
     accepted_count = serializers.SerializerMethodField()
-    # Write-only fields để tạo/sửa
     company_id = serializers.PrimaryKeyRelatedField(
         queryset=Company.objects.all(), write_only=True, source='company'
     )
@@ -164,7 +145,6 @@ class JobDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at','status', 'rejection_reason','is_featured','featured_priority']
 
-    #Override update để xử lý ManytoMany cho skills, dùng set
     def update(self, instance, validated_data):
         skills = validated_data.pop('skills', None)
         for attr, value in validated_data.items():
@@ -259,7 +239,6 @@ class CandidateProfilePublicSerializer(serializers.ModelSerializer):
         fields = ['bio','gender','address','cv_file','skills']
 
 class CandidatePublicSerializer(serializers.ModelSerializer):
-    #dùng khi employer xem thông tin ứng viên
     avatar_url = serializers.SerializerMethodField()
     profile = CandidateProfilePublicSerializer(read_only=True)
     class Meta:
@@ -271,7 +250,6 @@ class CandidatePublicSerializer(serializers.ModelSerializer):
             return obj.avatar.url
         return None
 
-# APPLICATION
 class ApplicationSerializer(serializers.ModelSerializer):
     candidate = CandidatePublicSerializer(read_only=True)
     job = JobListSerializer(read_only=True)
@@ -353,12 +331,10 @@ class InterviewScheduleSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        # Nếu có interview_at thì bắt buộc có interview_location
         if data.get('interview_at') and not data.get('interview_location'):
             raise serializers.ValidationError({'interview_location': 'Vui lòng nhập địa điểm phỏng vấn.'})
         return data
     
-# PROFILES
 class CandidateProfileSerializer(serializers.ModelSerializer):
     skills = SkillSerializer(many=True, read_only=True)
     skill_ids = serializers.PrimaryKeyRelatedField(
@@ -397,13 +373,11 @@ class EmployerProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Bạn không phải chủ sở hữu công ty này.')
         return value
 
-#Admin duyệt/ từ chối employer
 class EmployerVerifySerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id','is_verified']
 
-#Admin xem danh sách employer chờ duyệt
 class EmployerProfileAdminSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     company = CompanySerializer(read_only=True)
@@ -424,13 +398,11 @@ class AdminJobSerializer(serializers.ModelSerializer):
             'status', 'rejection_reason', 'created_at',
         ]
 
-#Package
 class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
         fields = ['id', 'name', 'package_type', 'level', 'duration_days', 'price', 'description']
 
-#Payment
 class PaymentSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     package_detail = serializers.SerializerMethodField()

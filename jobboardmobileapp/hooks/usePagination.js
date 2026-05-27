@@ -15,6 +15,7 @@ const usePagination = (endpoint, pageSize = 10, extraParams = '') => {
         try {
             const token = await AsyncStorage.getItem('token');
             const url = `${endpoint}?page=${pageNumber}&page_size=${pageSize}${extraParams}`;
+            console.log("==> ĐANG GỌI API:", url);
             const res = await authApi(token).get(url);
  
             if (res.data.results !== undefined) {

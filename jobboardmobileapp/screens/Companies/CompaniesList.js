@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Apis, { endpoints } from '../../configs/Apis';
 import styles from './Styles';
+import Paginator from '../../components/Paginator';
 
 const PAGE_SIZE = 10;
 
@@ -17,26 +18,20 @@ export default function CompaniesList({ navigation }) {
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
 
-    // ==================== LOAD COMPANIES + JOB COUNT ====================
     const loadCompanies = async () => {
         try {
             setLoading(true);
-
             let url = `${endpoints['companies']}?page=${page}`;
             
             if (keyword) {
                 url += `&name__icontains=${encodeURIComponent(keyword.trim())}`;
             }
-
             let res = await Apis.get(url);
-            
             const count = res.data?.count ?? 0;
             const data = res.data?.results ?? (Array.isArray(res.data) ? res.data : []);
-
             setTotalCount(count);
             setTotalPages(Math.ceil(count / PAGE_SIZE));
 
-            // hiển thị công ty đã lọc
             setCompanies(data.map(c => ({ ...c, job_count: null })));
 
             const withCounts = await Promise.all(
@@ -69,63 +64,10 @@ export default function CompaniesList({ navigation }) {
         return () => clearTimeout(timer);
     }, [keyword, page]);
 
-
-    // ==================== PAGINATOR ====================
     const handlePageChange = (newPage) => {
-        if (newPage < 1 || newPage > totalPages) return;
+        if (newPage < 1 || newPage > totalPages) 
+            return;
         setPage(newPage);
-    };
-
-    const Paginator = () => {
-        if (totalPages <= 1) return null;
-
-        const getPageNumbers = () => {
-            let pages = [];
-            let start = Math.max(1, page - 2);
-            let end = Math.min(totalPages, page + 2);
-            if (start > 1) pages.push(1);
-            if (start > 2) pages.push('...');
-            for (let i = start; i <= end; i++) pages.push(i);
-            if (end < totalPages - 1) pages.push('...');
-            if (end < totalPages) pages.push(totalPages);
-            return pages;
-        };
-
-        return (
-            <View style={styles.paginatorContainer}>
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
-                    onPress={() => handlePageChange(page - 1)}
-                    disabled={page === 1}
-                >
-                    <Text style={[styles.pageBtnText, page === 1 && styles.pageBtnTextDisabled]}>‹</Text>
-                </TouchableOpacity>
-
-                {getPageNumbers().map((p, index) => (
-                    p === '...' ? (
-                        <Text key={`dot-${index}`} style={styles.pageDots}>...</Text>
-                    ) : (
-                        <TouchableOpacity
-                            key={p}
-                            style={[styles.pageBtn, page === p && styles.pageBtnActive]}
-                            onPress={() => handlePageChange(p)}
-                        >
-                            <Text style={[styles.pageBtnText, page === p && styles.pageBtnTextActive]}>
-                                {p}
-                            </Text>
-                        </TouchableOpacity>
-                    )
-                ))}
-
-                <TouchableOpacity
-                    style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
-                    onPress={() => handlePageChange(page + 1)}
-                    disabled={page === totalPages}
-                >
-                    <Text style={[styles.pageBtnText, page === totalPages && styles.pageBtnTextDisabled]}>›</Text>
-                </TouchableOpacity>
-            </View>
-        );
     };
 
     const CompanyCard = ({ company }) => (
@@ -147,11 +89,9 @@ export default function CompaniesList({ navigation }) {
             </View>
         </TouchableOpacity>
     );
-   
-    // ==================== RENDER ====================
+
     return (
         <SafeAreaView style={styles.container}>
-            {/* Search header */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchRow}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -168,7 +108,6 @@ export default function CompaniesList({ navigation }) {
                 </View>
             </View>
 
-            {/* Section header */}
             <View style={[styles.sectionHeader, { marginTop: 12 }]}>
                 <Text style={styles.sectionTitle}>Tất cả công ty</Text>
                 {totalCount > 0 && (
@@ -176,19 +115,24 @@ export default function CompaniesList({ navigation }) {
                 )}
             </View>
 
-            {/* List */}
             {loading ? (
                 <ActivityIndicator size="large" color="#3B5BDB" style={{ marginTop: 40 }} />
             ) : companies.length === 0 ? (
                 <Text style={styles.emptyText}>Không tìm thấy công ty nào</Text>
             ) : (
-                <FlatList
-                    data={companies}
-                    keyExtractor={item => item.id.toString()}
-                    renderItem={({ item }) => <CompanyCard company={item} />}
-                    showsVerticalScrollIndicator={false}
-                    ListFooterComponent={<Paginator />}
-                    contentContainerStyle={{ paddingBottom: 20 }}
+            <FlatList
+                data={companies}
+                keyExtractor={item => item.id.toString()}
+                renderItem={({ item }) => <CompanyCard company={item} />}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+            />
+            )}
+            {!loading && companies.length > 0 && (
+                <Paginator
+                    page={page}
+                    totalPages={totalPages}
+                    onGoTo={handlePageChange}
                 />
             )}
         </SafeAreaView>

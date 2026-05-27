@@ -3,7 +3,6 @@ import { View, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-
 import AdminHome from '../screens/Admin/AdminDashboard';
 import AdminUpdateStatusJob from '../screens/Admin/AdminUpdateStatusJob'; 
 import EmployerHome from '../screens/Employers/EmployersDashboard';
@@ -85,7 +84,6 @@ function EmployerStack() {
     );
 }
 
-// Bọc InterviewManagement vào một Stack để giữ cấu trúc điều hướng chuẩn
 function InterviewStack() {
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -118,7 +116,6 @@ function AdminEmployerApprovalStack() {
     );
 }
 
-// ─── Tab Candidate ────────────────────────────────────────────────────────────
 function CandidateTab() {
     const user = useMyUser();
     return (
@@ -142,7 +139,6 @@ function CandidateTab() {
     );
 }
 
-// ─── Tab Admin ────────────────────────────────────────────────────────────────
 function AdminTab() {
     return (
         <Tab.Navigator
@@ -169,7 +165,6 @@ function AdminTab() {
     );
 }
 
-// ─── Tab Employer ─────────────────────────────────────────────────────────────
 function EmployerTab() {
     return (
         <Tab.Navigator
@@ -179,7 +174,7 @@ function EmployerTab() {
                         'Thống kê': 'stats-chart',
                         'Bài đăng': 'checkmark-done',
                         'Đơn ứng tuyển': 'document-text',
-                        'Phỏng vấn': 'calendar', // Icon cho mục lịch phỏng vấn mới
+                        'Phỏng vấn': 'calendar', 
                         'Công ty' : 'business',
                         'Tài khoản': 'person',
                     };
@@ -193,8 +188,6 @@ function EmployerTab() {
             <Tab.Screen name="Thống kê" component={EmployerStack} />
             <Tab.Screen name="Bài đăng" component={JobManagement} />
             <Tab.Screen name="Đơn ứng tuyển" component={EmployerApplication} />
-            
-            {/* THÊM TAB LỊCH PHỎNG VẤN TRỰC TIẾP TẠI ĐÂY */}
             <Tab.Screen name="Phỏng vấn" component={InterviewStack} />
             
             <Tab.Screen name="Công ty" component={CompanyInfoStack}/>
@@ -202,8 +195,6 @@ function EmployerTab() {
         </Tab.Navigator>
     );
 }
-
-// ─── Main Navigator ───────────────────────────────────────────────────────────
 export default function MainNavigator() {
     const user = useMyUser();
     if (!user || user.role === 'candidate') return <CandidateTab />;

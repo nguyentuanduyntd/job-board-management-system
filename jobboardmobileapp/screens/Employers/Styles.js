@@ -1,26 +1,27 @@
 import { StyleSheet, Dimensions, Platform } from 'react-native';
+import styles, { GlobalColors } from '../../styles/Styles';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const PAD = 20;
 
 export const Colors = {
-    bg:          '#F5F7FA',
-    surface:     '#FFFFFF',
-    border:      '#EAECF0',
-    accent:      '#2563EB',
+    bg:          GlobalColors.bg,
+    surface:     GlobalColors.surface,
+    border:      GlobalColors.border,
+    accent:      GlobalColors.primary,
     accentLight: '#EFF6FF',
     accentBdr:   '#C5D0FF',
     green:       '#16A34A',
     yellow:      '#D97706',
     red:         '#DC2626',
-    danger:      '#EF4444',
-    dangerBg:    '#FEF2F2',
+    danger:      GlobalColors.danger,
+    dangerBg:    GlobalColors.dangerBg,
     dangerBdr:   '#FECACA',
     purple:      '#7C3AED',
-    text:        '#111827',
-    textMuted:   '#9AA5B4',
-    textSub:     '#6B7280',
-    textSec:     '#6B7280',
+    text:        GlobalColors.text,
+    textMuted:   GlobalColors.textMuted,
+    textSub:     GlobalColors.textSec,
+    textSec:     GlobalColors.textSec,
     pending:     '#D97706',
     pendingBg:   '#FEF3C7',
     pendingBdr:  '#FDE68A',
@@ -31,6 +32,8 @@ export const Colors = {
 };
 
 export default StyleSheet.create({
+    ...styles,
+
     root:    { flex: 1, backgroundColor: Colors.bg },
     centered:{ flex: 1, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', padding: 40 },
 
@@ -108,7 +111,6 @@ export default StyleSheet.create({
         spacing:      { height: 20 }
     },
 
-    // ─── OLD CODES RETAINED FROM YOUR ATTACHMENT ──────
     header: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingHorizontal: PAD,
@@ -155,9 +157,7 @@ export default StyleSheet.create({
     infoValue:    { fontSize: 14, color: Colors.text, marginTop: 1 },
     descWrap:     { marginTop: 14, backgroundColor: Colors.bg, borderRadius: 10, padding: 12 },
     descLabel:    { fontSize: 11, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-    descText:     { fontSize: 14, color: Colors.textSec, lineHeight: 20 },
 
-    emptyText:    { color: Colors.textMuted, fontSize: 14, textAlign: 'center', paddingVertical: 30 },
     emptyIconWrap:{ width: 96, height: 96, borderRadius: 48, backgroundColor: Colors.accentLight, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     emptyTitle:   { fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' },
     emptyDesc:    { fontSize: 14, color: Colors.textSec, textAlign: 'center', marginTop: 8, lineHeight: 21 },
@@ -189,8 +189,6 @@ export default StyleSheet.create({
     logoEditBadge:    { position: 'absolute', bottom: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.accent, justifyContent: 'center', alignItems: 'center' },
 
     fieldWrap:       { marginBottom: 14 },
-    cancelBtnText: { fontSize: 15, color: Colors.textSec, fontWeight: '600' },
-    saveBtnText:   { fontSize: 15, color: '#fff', fontWeight: '700' },
 
     deleteCard:       { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, alignItems: 'center', width: '100%' },
     deleteIconWrap:   { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.dangerBg, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
@@ -294,17 +292,6 @@ export default StyleSheet.create({
     barFill:       { width: '100%', borderRadius: 8 },
     barXLabel:     { fontSize: 10, color: Colors.textMuted, marginTop: 8, textAlign: 'center' },
 
-    paginatorWrap: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, gap: 6, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-    pageBtn:         { minWidth: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, backgroundColor: Colors.surface },
-    pageBtnActive:   { backgroundColor: Colors.accent, borderColor: Colors.accent },
-    pageBtnDisabled: { opacity: 0.35 },
-    pageBtnText:     { fontSize: 14, fontWeight: '600', color: Colors.text },
-    pageBtnTextActive: { color: '#fff' },
-    pageDots:        { fontSize: 14, color: Colors.textMuted, paddingHorizontal: 4 },
-
-    // =========================================================================
-    // ✅ THÀNH PHẦN BỔ SUNG: Cấu hình thống kê 4 ô đồng bộ Flexbox tỉ lệ bằng nhau
-    // =========================================================================
     unifiedStatCard: {
         flex: 1,
         backgroundColor: '#fff',

@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  StatusBar,
-} from 'react-native';
+import {View,Text,ScrollView,TouchableOpacity,ActivityIndicator,RefreshControl,StatusBar,} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi, endpoints } from '../../configs/Apis';
 import styles, { Colors } from './Styles';
@@ -22,7 +14,6 @@ export default function EmployerDashboardScreen({ navigation }) {
   const [appPeriod, setAppPeriod] = useState('month');
   const [jobPeriod, setJobPeriod] = useState('month');
 
-  // LOAD DATA
   const fetchData = useCallback(async (isRefresh = false) => {
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
@@ -42,7 +33,6 @@ export default function EmployerDashboardScreen({ navigation }) {
     fetchData();
   }, [fetchData]);
 
-  // HELPERS
   const buildChartData = (prefix, period) => {
     if (!data) return [];
     const key = `${prefix}_by_${period}`;
@@ -59,7 +49,6 @@ export default function EmployerDashboardScreen({ navigation }) {
     });
   };
 
-  // SHARED COMPONENTS (giống AdminDashboard)
   const OverviewCard = ({ label, value, color, iconBg, icon }) => (
     <View style={styles.overviewCard}>
       <View style={[styles.overviewIconWrap, { backgroundColor: iconBg }]}>
@@ -109,7 +98,6 @@ export default function EmployerDashboardScreen({ navigation }) {
     );
   };
 
-  // LOADING STATE
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -127,7 +115,6 @@ export default function EmployerDashboardScreen({ navigation }) {
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Thống kê của tôi</Text>
@@ -145,7 +132,6 @@ export default function EmployerDashboardScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} />
         }
       >
-        {/* Overview Grid — giống AdminDashboard */}
         <View style={styles.overviewGrid}>
           <OverviewCard
             label="Tin đã đăng"
@@ -177,7 +163,6 @@ export default function EmployerDashboardScreen({ navigation }) {
           />
         </View>
 
-        {/* Chart: Đơn ứng tuyển */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionDot, { backgroundColor: Colors.green }]} />
@@ -191,7 +176,6 @@ export default function EmployerDashboardScreen({ navigation }) {
           />
         </View>
 
-        {/* Chart: Tin tuyển dụng */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionDot, { backgroundColor: Colors.accent }]} />

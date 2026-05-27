@@ -9,11 +9,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { authApi, endpoints } from '../../configs/Apis';
-
-// Nhúng file Styles dùng chung
 import styles, { Colors } from './Styles';
 
-// ─── Company Form Modal ───────────────────────────────────────────────────────
 const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
     const isEdit = !!company;
     const [form, setForm] = useState({ name: '', description: '', website: '', address: '' });
@@ -99,28 +96,18 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
             onSaved(res.data);
             onClose();
         } catch (ex) {
-            // Log ra để sau này nếu có lỗi khác mình dễ check
             console.log("LỖI TỪ BACKEND:", JSON.stringify(ex.response?.data));
 
             const msg = ex?.response?.data?.name?.[0]
-                || ex?.response?.data?.website?.[0]  // Thêm dòng này để bắt lỗi website nếu user nhập sai định dạng link
+                || ex?.response?.data?.website?.[0]  
                 || ex?.response?.data?.detail
                 || 'Không thể lưu thông tin công ty.';
             Alert.alert('Lỗi', msg);
         } finally {
             setLoading(false);
         }
-        // } catch (ex) {
-        //     const msg = ex?.response?.data?.name?.[0]
-        //         || ex?.response?.data?.detail
-        //         || 'Không thể lưu thông tin công ty.';
-        //     Alert.alert('Lỗi', msg);
-        // } finally {
-        //     setLoading(false);
-        // }
     };
 
-    // Hàm render Field (Viết dạng function để KHÔNG BỊ MẤT FOCUS KHI GÕ)
     const renderField = (label, field, placeholder, multiline = false) => (
         <View style={styles.fieldWrap} key={field}>
             <Text style={styles.fieldLabel}>{label}</Text>
@@ -140,13 +127,11 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            {/* behavior={undefined} trên Android giúp form không bị bóp méo, 'padding' trên iOS */}
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <View style={styles.formOverlay}>
                     <View style={styles.formCard}>
                         <View style={styles.handleBar} />
 
-                        {/* Header */}
                         <View style={styles.formHeader}>
                             <Text style={styles.formTitle}>{isEdit ? 'Chỉnh sửa công ty' : 'Thêm thông tin công ty'}</Text>
                             <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -154,9 +139,7 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Bỏ style={{ flex: 1 }} ở ScrollView để form hiển thị đúng chiều cao */}
                         <ScrollView showsVerticalScrollIndicator={false}>
-                            {/* Logo picker */}
                             <View style={styles.logoPicker}>
                                 <TouchableOpacity style={styles.logoCircle} onPress={pickLogo}>
                                     {logoUri ? (
@@ -173,7 +156,6 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Render Inputs */}
                             {renderField('Tên công ty *', 'name', 'VD: Tech Solutions JSC')}
                             {renderField('Địa chỉ', 'address', 'VD: 123 Nguyễn Huệ, Q.1, TP.HCM')}
                             {renderField('Website', 'website', 'https://example.com')}
@@ -182,7 +164,6 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
                             <View style={{ height: 24 }} />
                         </ScrollView>
 
-                        {/* Actions */}
                         <View style={styles.formActions}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={loading}>
                                 <Text style={styles.cancelBtnText}>Hủy</Text>
@@ -205,7 +186,6 @@ const CompanyFormModal = ({ visible, company, onClose, onSaved }) => {
     );
 };
 
-// ─── Delete Confirm Modal ─────────────────────────────────────────────────────
 const DeleteModal = ({ visible, companyName, onConfirm, onCancel, loading }) => (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
         <View style={styles.overlay}>
@@ -238,7 +218,6 @@ const DeleteModal = ({ visible, companyName, onConfirm, onCancel, loading }) => 
     </Modal>
 );
 
-// ─── Info Row ─────────────────────────────────────────────────────────────────
 const InfoRow = ({ icon, label, value }) => {
     if (!value) return null;
     return (
@@ -254,7 +233,6 @@ const InfoRow = ({ icon, label, value }) => {
     );
 };
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function CompanyInfo() {
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -265,7 +243,6 @@ export default function CompanyInfo() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
-    // ── Fetch my companies ────────────────────────────────────────────────────
     const fetchCompanies = useCallback(async (isRefresh = false) => {
         try {
             isRefresh ? setRefreshing(true) : setLoading(true);
@@ -283,7 +260,6 @@ export default function CompanyInfo() {
 
     useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
-    // ── Saved callback (create or update) ────────────────────────────────────
     const handleSaved = useCallback((saved) => {
         setCompanies(prev => {
             const exists = prev.find(c => c.id === saved.id);
@@ -293,7 +269,6 @@ export default function CompanyInfo() {
         });
     }, []);
 
-    // ── Delete ────────────────────────────────────────────────────────────────
     const handleDelete = useCallback(async () => {
         if (!deleteTarget) return;
         try {
@@ -312,7 +287,6 @@ export default function CompanyInfo() {
         }
     }, [deleteTarget]);
 
-    // ── Empty state ───────────────────────────────────────────────────────────
     const EmptyState = () => (
         <View style={styles.empty}>
             <View style={styles.emptyIconWrap}>
@@ -340,7 +314,6 @@ export default function CompanyInfo() {
 
     return (
         <SafeAreaView style={styles.root}>
-            {/* Header */}
             <View style={styles.pageHeader}>
                 <View>
                     <Text style={styles.pageHeaderTitle}>Công ty của tôi</Text>
@@ -354,7 +327,6 @@ export default function CompanyInfo() {
                 </TouchableOpacity>
             </View>
 
-            {/* List */}
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={styles.listContent}
@@ -371,7 +343,6 @@ export default function CompanyInfo() {
                     ? <EmptyState />
                     : companies.map(company => (
                         <View key={company.id} style={styles.card}>
-                            {/* Card header */}
                             <View style={styles.cardTop}>
                                 {company.logo_url ? (
                                     <Image source={{ uri: company.logo_url }} style={styles.cardLogo} />
@@ -386,11 +357,10 @@ export default function CompanyInfo() {
                                     <Text style={styles.cardTitle} numberOfLines={1}>{company.name}</Text>
                                     {company.address ? (
                                         <Text style={styles.cardSub} numberOfLines={1}>
-                                            📍 {company.address}
+                                            {company.address}
                                         </Text>
                                     ) : null}
                                 </View>
-                                {/* Actions */}
                                 <View style={styles.cardActions}>
                                     <TouchableOpacity
                                         style={styles.editBtn}
@@ -406,8 +376,6 @@ export default function CompanyInfo() {
                                     </TouchableOpacity>
                                 </View>
                             </View>
-
-                            {/* Info rows */}
                             <View style={styles.divider} />
                             <View style={styles.infoGrid}>
                                 <InfoRow icon="mail-outline" label="Email" value={company.owner?.email} />
@@ -415,7 +383,6 @@ export default function CompanyInfo() {
                                 <InfoRow icon="location-outline" label="Địa chỉ" value={company.address} />
                             </View>
 
-                            {/* Description */}
                             {company.description ? (
                                 <View style={styles.descWrap}>
                                     <Text style={styles.descLabel}>Mô tả</Text>
@@ -428,7 +395,6 @@ export default function CompanyInfo() {
                 <View style={{ height: 32 }} />
             </ScrollView>
 
-            {/* Form Modal */}
             <CompanyFormModal
                 visible={showForm}
                 company={editTarget}
@@ -436,7 +402,6 @@ export default function CompanyInfo() {
                 onSaved={handleSaved}
             />
 
-            {/* Delete Modal */}
             <DeleteModal
                 visible={showDelete}
                 companyName={deleteTarget?.name || ''}

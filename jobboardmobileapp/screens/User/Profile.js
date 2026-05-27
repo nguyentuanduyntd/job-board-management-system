@@ -10,7 +10,6 @@ import { authApi, endpoints } from '../../configs/Apis';
 import styles from './Styles';
 import { Ionicons } from '@expo/vector-icons';
 
-// ─── Modal Chỉnh sửa hồ sơ ───────────────────────────────────────────────────
 const EditProfileModal = ({ visible, onClose, user, dispatch }) => {
     const [form, setForm]       = useState({
         username: user?.username || '',
@@ -73,7 +72,6 @@ const EditProfileModal = ({ visible, onClose, user, dispatch }) => {
                         <Text style={styles.title}>CHỈNH SỬA HỒ SƠ</Text>
                     </View>
 
-                    {/* Avatar */}
                     <View style={{ alignItems: 'center', marginBottom: 24 }}>
                         <TouchableOpacity onPress={pickAvatar}>
                             <Avatar.Image
@@ -122,7 +120,6 @@ const EditProfileModal = ({ visible, onClose, user, dispatch }) => {
     );
 };
 
-// ─── Modal Đổi mật khẩu ──────────────────────────────────────────────────────
 const ChangePasswordModal = ({ visible, onClose }) => {
     const [form, setForm] = useState({
         old_password: '', new_password: '', confirm_password: '',
@@ -204,7 +201,6 @@ const ChangePasswordModal = ({ visible, onClose }) => {
     );
 };
 
-// ─── Profile Screen chính ─────────────────────────────────────────────────────
 const Profile = () => {
     const user     = useMyUser();
     const dispatch = useMyDispatch();
@@ -228,7 +224,6 @@ const Profile = () => {
         <SafeAreaView style={styles.container}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                {/* Header */}
                 <View style={styles.headerContainer}>
                     <Avatar.Image
                         size={120}
@@ -246,7 +241,6 @@ const Profile = () => {
 
                 <Divider />
 
-                {/* Thông tin liên hệ */}
                 <View style={styles.infoSection}>
                     <List.Section>
                         <List.Subheader>Thông tin liên hệ</List.Subheader>
@@ -264,7 +258,6 @@ const Profile = () => {
 
                     <Divider />
 
-                    {/* Cài đặt tài khoản */}
                     <List.Section>
                         <List.Subheader>Cài đặt tài khoản</List.Subheader>
                         <TouchableOpacity onPress={() => setShowEdit(true)}>
@@ -284,7 +277,6 @@ const Profile = () => {
                     </List.Section>
                 </View>
 
-                {/* Đăng xuất */}
                 <View style={{ padding: 20 }}>
                     <Button mode="outlined" onPress={handleLogout}
                         textColor="#fa5252" style={styles.logoutBtn}>
@@ -293,7 +285,6 @@ const Profile = () => {
                 </View>
             </ScrollView>
 
-            {/* Modals */}
             <EditProfileModal
                 visible={showEdit}
                 onClose={() => setShowEdit(false)}

@@ -4,21 +4,16 @@ from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from .models import Job, CandidateProfile, EmployerProfile
 
-User = get_user_model() # Cách lấy User model chuẩn nhất của Django
+User = get_user_model()
 
 print("--- [OK] File signals.py đã được nạp thành công vào bộ nhớ hệ thống! ---")
-
-
-# --- LOGIC QUẢN LÝ CACHE REDIS (JOB) ---
 
 def clear_job_list_caches():
     """Hàm trung tâm quét và xóa toàn bộ các cache key bắt đầu bằng jobs_list_"""
     try:
-        # Xóa tất cả các khóa lưu trữ danh sách động (Yêu cầu sử dụng thư viện django-redis)
         cache.delete_pattern("jobs_list_*")
         print("--- [SIGNAL] Đã dọn dẹp toàn bộ cache dạng 'jobs_list_*'.")
     except AttributeError:
-        # Phương án dự phòng nếu môi trường không hỗ trợ cấu hình quét pattern
         cache.clear()
         print("--- [SIGNAL WARNING] Môi trường không hỗ trợ delete_pattern. Đã clear sạch RAM cache.")
 
@@ -42,8 +37,6 @@ def job_post_delete_handler(sender, instance, **kwargs):
     clear_job_list_caches()
 
 
-# --- LOGIC TỰ ĐỘNG TẠO PROFILE (USER) ---
-
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     """
@@ -51,7 +44,6 @@ def create_user_profile(sender, instance, created, **kwargs):
     """
     if created:
         if instance.role == 'candidate':
-            # Dùng get_or_create để phòng ngừa lỗi trùng lặp bản ghi (IntegrityError)
             CandidateProfile.objects.get_or_create(user=instance)
             print(f"--- [SIGNAL] Đã khởi tạo CandidateProfile cho tài khoản: {instance.username}")
         elif instance.role == 'employer':

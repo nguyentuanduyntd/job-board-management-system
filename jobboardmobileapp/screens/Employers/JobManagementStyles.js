@@ -3,7 +3,6 @@ import { Colors } from './Styles';
 
 const { height } = Dimensions.get('window');
 
-// ─── Form Modal styles ────────────────────────────────────────────────────────
 export const formStyles = StyleSheet.create({
     title: { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 20 },
     input: { marginBottom: 12, backgroundColor: Colors.surface },
@@ -12,7 +11,6 @@ export const formStyles = StyleSheet.create({
     pickerLabel: { position: 'absolute', top: -10, left: 10, backgroundColor: '#fff', paddingHorizontal: 4, fontSize: 12, color: '#49454F', zIndex: 1 }
 });
 
-// ─── Job Card styles ──────────────────────────────────────────────────────────
 export const cardStyles = StyleSheet.create({
     card: { 
         backgroundColor: Colors.surface, 
@@ -29,12 +27,10 @@ export const cardStyles = StyleSheet.create({
         position: 'relative',
         overflow: 'hidden' 
     },
-    // STYLE KHI CÓ TIN NỔI BẬT (GHI ĐÈ)
     cardFeatured: {
         backgroundColor: '#F0FDF4', 
         borderColor: '#22C55E',     
     },
-    // DẢI BĂNG NỔI BẬT GÓC TRÊN CÙNG
     featuredRibbon: { 
         position: 'absolute', 
         top: 0, 
@@ -43,7 +39,7 @@ export const cardStyles = StyleSheet.create({
         paddingHorizontal: 12, 
         paddingVertical: 5, 
         borderBottomLeftRadius: 12, 
-        borderTopRightRadius: 14, // Bo khớp với góc bo của card
+        borderTopRightRadius: 14,
         zIndex: 99,
         elevation: 5
     },
@@ -65,7 +61,6 @@ export const cardStyles = StyleSheet.create({
     boostBtnText: { color: '#D97706', fontWeight: '700', fontSize: 13 },
 });
 
-// ─── Các styles khác giữ nguyên ───────────────────────────────────────────────
 export const addBtnStyles = StyleSheet.create({
     btn: { backgroundColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
     text: { color: Colors.surface, fontWeight: '700', fontSize: 14 },

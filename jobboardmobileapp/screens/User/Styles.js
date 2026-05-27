@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 
 export default StyleSheet.create({
-    // ─── Layout chung ────────────────────────────────────────────────────────
     container: {
         flex: 1,
         backgroundColor: "#fff",
@@ -15,11 +14,11 @@ export default StyleSheet.create({
         justifyContent: "center",
     },
 
-    // ─── Header & Typography ─────────────────────────────────────────────────
     headerContainer: {
         alignItems: "center",
         paddingVertical: 30,
         backgroundColor: "#f8f9fa",
+        marginBottom: 10,
     },
     title: {
         fontSize: 24,
@@ -39,7 +38,6 @@ export default StyleSheet.create({
         marginTop: 5,
     },
 
-    // ─── Input & Form ────────────────────────────────────────────────────────
     input: {
         marginBottom: 15,
         backgroundColor: "#fff",
@@ -47,9 +45,9 @@ export default StyleSheet.create({
     errorText: {
         color: "#fa5252",
         marginBottom: 10,
+        paddingHorizontal: 0, 
     },
 
-    // ─── Buttons ─────────────────────────────────────────────────────────────
     submitBtn: {
         height: 50,
         justifyContent: "center",
@@ -83,7 +81,6 @@ export default StyleSheet.create({
         height: 46,
     },
 
-    // ─── Divider ─────────────────────────────────────────────────────────────
     dividerRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -99,7 +96,6 @@ export default StyleSheet.create({
         fontSize: 12,
     },
 
-    // ─── Tags & Badges ────────────────────────────────────────────────────────
     tag: {
         marginTop: 10,
         paddingHorizontal: 12,
@@ -113,12 +109,10 @@ export default StyleSheet.create({
         fontWeight: "bold",
     },
 
-    // ─── List & Spacing ───────────────────────────────────────────────────────
     infoSection: {
         paddingHorizontal: 10,
     },
 
-    // ─── Footer & Links ───────────────────────────────────────────────────────
     footer: {
         flexDirection: "row",
         justifyContent: "center",
@@ -133,7 +127,6 @@ export default StyleSheet.create({
         fontWeight: "bold",
     },
 
-    // ─── Register — chọn vai trò ──────────────────────────────────────────────
     roleLabel: {
         fontSize: 13,
         color: "#555",
@@ -156,9 +149,15 @@ export default StyleSheet.create({
         marginBottom: 4,
     },
     avatarEditBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    backgroundColor: '#3B5BDB', borderRadius: 12,
-    width: 24, height: 24, justifyContent: 'center', alignItems: 'center',
+        position: 'absolute', 
+        bottom: 0, 
+        right: 0,
+        backgroundColor: '#3B5BDB', 
+        borderRadius: 12,
+        width: 24, 
+        height: 24, 
+        justifyContent: 'center', 
+        alignItems: 'center',
     },
     avatarEditText: {
         fontSize: 12,

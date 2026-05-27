@@ -2,13 +2,11 @@ import { StyleSheet } from 'react-native';
 
 export default StyleSheet.create({
 
-    // ── Layout ────────────────────────────────────────────────
     container: {
         flex: 1,
         backgroundColor: '#F0F4FF',
     },
 
-    // ── Header ───────────────────────────────────────────────
     header: {
         backgroundColor: '#3B5BDB',
         flexDirection: 'row',
@@ -52,7 +50,6 @@ export default StyleSheet.create({
         fontWeight: '700',
     },
 
-    // ── Tab bar ───────────────────────────────────────────────
     tabBar: {
         backgroundColor: '#fff',
         paddingVertical: 10,
@@ -101,7 +98,6 @@ export default StyleSheet.create({
         color: '#fff',
     },
 
-    // ── Card ──────────────────────────────────────────────────
     card: {
         backgroundColor: '#fff',
         borderRadius: 16,
@@ -115,7 +111,6 @@ export default StyleSheet.create({
         shadowOpacity: 0.08,
         shadowRadius: 8,
     },
-    // Priority card — viền xanh lá + nền xanh lá nhẹ
     cardPriority: {
         borderColor: '#22C55E',
         backgroundColor: '#F0FDF4',
@@ -133,7 +128,6 @@ export default StyleSheet.create({
         gap: 10,
     },
 
-    // ── Priority banner (bên trong card) ──────────────────────
     priBanner: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -156,7 +150,6 @@ export default StyleSheet.create({
         flexShrink: 0,
     },
 
-    // ── Top row ───────────────────────────────────────────────
     topRow: {
         flexDirection: 'row',
         gap: 12,
@@ -189,7 +182,6 @@ export default StyleSheet.create({
         marginTop: 2,
     },
 
-    // ── Status badge ──────────────────────────────────────────
     badge: {
         borderRadius: 10,
         paddingHorizontal: 8,
@@ -207,7 +199,6 @@ export default StyleSheet.create({
         textAlign: 'center',
     },
 
-    // ── Meta row ──────────────────────────────────────────────
     metaRow: {
         flexDirection: 'row',
         gap: 16,
@@ -221,7 +212,6 @@ export default StyleSheet.create({
     metaIcon: { fontSize: 12 },
     metaText: { fontSize: 12, color: '#777' },
 
-    // ── Employer note ─────────────────────────────────────────
     noteBox: {
         backgroundColor: '#F8F9FF',
         borderRadius: 8,
@@ -241,7 +231,6 @@ export default StyleSheet.create({
         lineHeight: 18,
     },
 
-    // ── Cover letter preview ──────────────────────────────────
     coverPreview: {
         fontSize: 12,
         color: '#888',
@@ -252,7 +241,6 @@ export default StyleSheet.create({
         paddingLeft: 10,
     },
 
-    // ── Action row (priority + cancel) ────────────────────────
     actionRow: {
         flexDirection: 'row',
         gap: 8,
@@ -261,7 +249,6 @@ export default StyleSheet.create({
         justifyContent: 'flex-end',
     },
 
-    // ── Priority button ───────────────────────────────────────
     priorityBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -285,7 +272,6 @@ export default StyleSheet.create({
         fontWeight: '700',
     },
 
-    // ── Cancel button ─────────────────────────────────────────
     cancelBtn: {
         alignSelf: 'flex-end',
         borderWidth: 1.5,
@@ -300,7 +286,6 @@ export default StyleSheet.create({
         fontWeight: '600',
     },
 
-    // ── Info note (REVIEWING) ─────────────────────────────────
     infoNote: {
         backgroundColor: '#EEF2FF',
         borderRadius: 8,
@@ -313,7 +298,6 @@ export default StyleSheet.create({
         color: '#3B5BDB',
     },
 
-    // ── Empty state ───────────────────────────────────────────
     empty: {
         flex: 1,
         justifyContent: 'center',
@@ -350,11 +334,10 @@ export default StyleSheet.create({
         fontSize: 14,
     },
 
-    // ── Cancel modal ──────────────────────────────────────────
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.45)',
-        justifyContent: 'flex-end',     // bottom sheet style cho priority modal
+        justifyContent: 'flex-end',  
         alignItems: 'center',
         padding: 0,
     },
@@ -417,7 +400,6 @@ export default StyleSheet.create({
         fontWeight: '700',
     },
 
-    // ── Priority modal (bottom sheet) ─────────────────────────
     priorityDialog: {
         backgroundColor: '#fff',
         borderTopLeftRadius: 24,
@@ -496,7 +478,6 @@ export default StyleSheet.create({
         fontWeight: '700',
     },
 
-    // ── Package card (trong modal) ────────────────────────────
     pkgCard: {
         borderWidth: 2,
         borderRadius: 14,

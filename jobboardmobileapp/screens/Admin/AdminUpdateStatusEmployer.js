@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-    View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+import {View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
     RefreshControl, Modal, Alert, TextInput, KeyboardAvoidingView, Platform, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,7 +9,6 @@ import { Colors as C, approvalStyles as s } from './Styles';
 import usePagination from '../../hooks/usePagination';
 import Paginator from '../../components/Paginator';
 
-// ─── Reject Modal ─────────────────────────────────────────────────────────────
 const RejectModal = ({ visible, employerName, onConfirm, onCancel, loading }) => {
     const [reason, setReason] = useState('');
     useEffect(() => { if (!visible) setReason(''); }, [visible]);
@@ -55,7 +53,6 @@ const RejectModal = ({ visible, employerName, onConfirm, onCancel, loading }) =>
     );
 };
 
-// ─── Employer Detail Modal ────────────────────────────────────────────────────
 const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, actionLoading }) => {
     if (!employer) return null;
     const userInfo = employer.user || {};
@@ -126,7 +123,6 @@ const EmployerDetailModal = ({ visible, employer, onClose, onApprove, onReject, 
     );
 };
 
-// ─── Employer Card ────────────────────────────────────────────────────────────
 const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading }) => {
     const userInfo = employer.user || {};
     const companyInfo = employer.company || {};
@@ -192,7 +188,6 @@ const EmployerCard = ({ employer, onPress, onApprove, onReject, actionLoading })
     );
 };
 
-// ─── Filter Tabs ──────────────────────────────────────────────────────────────
 const TABS = [
     { key: 'pending', label: 'Chờ duyệt', color: C.pending },
     { key: 'approved', label: 'Đã duyệt', color: C.approved },
@@ -200,7 +195,6 @@ const TABS = [
     { key: 'all', label: 'Tất cả', color: C.accent },
 ];
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AdminUpdateStatusEmployer() {
     const [activeTab, setActiveTab] = useState('pending');
     const [selectedEmployer, setSelectedEmployer] = useState(null);
@@ -209,25 +203,21 @@ export default function AdminUpdateStatusEmployer() {
     const [rejectTarget, setRejectTarget] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
 
-    // Sử dụng extraParams động dựa trên activeTab hiện tại để tích hợp phân trang từ Server
     const extraParams = activeTab !== 'all' ? `&status=${activeTab}` : '';
     
     const { data: employers, setData: setEmployers, loading, refreshing, page, totalPages, count, load, refresh } =
         usePagination(endpoints['admin-employers'], 10, extraParams);
 
-    // Đồng bộ lại dữ liệu mỗi khi activeTab (Trạng thái lọc) thay đổi
     useEffect(() => {
         load(1);
     }, [activeTab]);
 
-    // ── Duyệt hồ sơ ───────────────────────────────────────────────────────────
     const handleApprove = useCallback(async (employer) => {
         try {
             setActionLoading(employer.id);
             const token = await AsyncStorage.getItem('token');
             await authApi(token).patch(endpoints['admin-employer-approve'](employer.id));
 
-            // Cập nhật state nội bộ hoặc reload lại trang hiện tại
             setEmployers(prev => prev.map(e =>
                 e.id === employer.id
                     ? { ...e, is_verified: true, is_rejected: false, rejection_reason: null }
@@ -237,8 +227,8 @@ export default function AdminUpdateStatusEmployer() {
             if (showDetail) {
                 setSelectedEmployer(prev => prev ? { ...prev, is_verified: true, is_rejected: false } : prev);
             }
-            Alert.alert('✓ Thành công', `Đã duyệt tài khoản "${employer.user?.username}".`);
-            refresh(); // Làm mới trang để cập nhật số lượng badge chính xác
+            Alert.alert('Thành công', `Đã duyệt tài khoản "${employer.user?.username}".`);
+            refresh(); 
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể duyệt tài khoản này.';
             Alert.alert('Lỗi', msg);
@@ -247,14 +237,12 @@ export default function AdminUpdateStatusEmployer() {
         }
     }, [showDetail, refresh]);
 
-    // ── Mở modal từ chối ──────────────────────────────────────────────────────
     const handleOpenReject = useCallback((employer) => {
         setRejectTarget(employer);
         setShowDetail(false);
         setShowReject(true);
     }, []);
 
-    // ── Xác nhận từ chối với lý do ────────────────────────────────────────────
     const handleConfirmReject = useCallback(async (reason) => {
         if (!rejectTarget) return;
         try {
@@ -270,7 +258,7 @@ export default function AdminUpdateStatusEmployer() {
             setShowReject(false);
             setRejectTarget(null);
             Alert.alert('Đã từ chối', `Tài khoản "${rejectTarget.user?.username}" đã bị từ chối.`);
-            refresh(); // Đọc lại dữ liệu để cập nhật số đếm badge
+            refresh();
         } catch (ex) {
             const msg = ex?.response?.data?.error || 'Không thể từ chối tài khoản.';
             Alert.alert('Lỗi', msg);
@@ -279,11 +267,10 @@ export default function AdminUpdateStatusEmployer() {
         }
     }, [rejectTarget, refresh]);
 
-    // ── Empty state ───────────────────────────────────────────────────────────
     const EmptyState = () => (
         <View style={s.empty}>
             <Text style={s.emptyIcon}>
-                {activeTab === 'pending' ? '🎉' : activeTab === 'rejected' ? '✅' : '📭'}
+                {activeTab === 'pending' ? '' : activeTab === 'rejected' ? '' : ''}
             </Text>
             <Text style={s.emptyTitle}>
                 {activeTab === 'pending' ? 'Không có tài khoản nào chờ duyệt' :
@@ -296,7 +283,6 @@ export default function AdminUpdateStatusEmployer() {
 
     return (
         <SafeAreaView style={s.root}>
-            {/* Header */}
             <View style={s.header}>
                 <View>
                     <Text style={s.headerTitle}>Duyệt doanh nghiệp</Text>
@@ -309,7 +295,6 @@ export default function AdminUpdateStatusEmployer() {
                 </TouchableOpacity>
             </View>
 
-            {/* Filter Tabs */}
             <View style={{ maxHeight: 50 }}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabScroll} contentContainerStyle={s.tabContainer}>
                     {TABS.map(tab => {
@@ -329,7 +314,6 @@ export default function AdminUpdateStatusEmployer() {
                 </ScrollView>
             </View>
 
-            {/* List chính hiển thị UI phân trang */}
             {loading && !refreshing ? (
                 <View style={s.centered}>
                     <ActivityIndicator size="large" color={C.accent} />
@@ -337,7 +321,7 @@ export default function AdminUpdateStatusEmployer() {
                 </View>
             ) : (
                 <FlatList
-                    data={employers} // Giờ dữ liệu hiển thị đúng theo từng trang từ Server trả về
+                    data={employers}
                     keyExtractor={item => item.id.toString()}
                     renderItem={({ item }) => (
                         <EmployerCard
@@ -351,14 +335,14 @@ export default function AdminUpdateStatusEmployer() {
                     contentContainerStyle={s.listContent}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={C.accent} />}
                     ListEmptyComponent={<EmptyState />}
-                    ListFooterComponent={<View style={{ height: 16 }} />}
+                    ListFooterComponent={
+                        <View style={{ paddingBottom: 16 }}>
+                            <Paginator page={page} totalPages={totalPages} onGoTo={load} />
+                        </View>
+                    }
                 />
             )}
 
-            {/* Thanh hiển thị phân trang dưới đáy màn hình */}
-            <Paginator page={page} totalPages={totalPages} onGoTo={load} />
-
-            {/* Detail Modal */}
             <EmployerDetailModal
                 visible={showDetail}
                 employer={selectedEmployer}
@@ -368,7 +352,6 @@ export default function AdminUpdateStatusEmployer() {
                 actionLoading={actionLoading !== null && actionLoading !== 'modal'}
             />
 
-            {/* Reject Modal */}
             <RejectModal
                 visible={showReject}
                 employerName={rejectTarget?.user?.username || ''}

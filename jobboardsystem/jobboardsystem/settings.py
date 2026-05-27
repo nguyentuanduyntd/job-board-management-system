@@ -89,8 +89,8 @@ DATABASES = {
         'NAME': os.getenv('MYSQL_DATABASE'),
         'USER': os.getenv('MYSQL_USER'),
         'PASSWORD': os.getenv('MYSQL_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', '192.168.1.183'),
-        'PORT': os.getenv('DB_PORT', '3305'),
+        'HOST': os.getenv('DB_HOST', '192.168.1.32'),
+        'PORT': os.getenv('DB_PORT', '3306'),
     }
 }
 
@@ -101,7 +101,6 @@ CKEDITOR_CONFIGS = {
     }
 }
 
-#Payment STRIPE
 STRIPE_SECRET_KEY      = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET  = os.environ.get('STRIPE_WEBHOOK_SECRET')
@@ -132,7 +131,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    #Thêm throttling chống brute-force và Spam
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
@@ -145,11 +143,10 @@ REST_FRAMEWORK = {
     },
 
 }
-# Cấu hình OAuth2
 OAUTH2_PROVIDER = {
-    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,       # token hết hạn sau 1 giờ
-    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400,     # refresh token hết hạn sau 1 ngày
-    'ROTATE_REFRESH_TOKEN': True,              # tạo refresh token mới mỗi lần refresh
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 3600,      
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 86400,     
+    'ROTATE_REFRESH_TOKEN': True,     
 }
 
 AUTHENTICATION_BACKENDS = {
@@ -157,14 +154,12 @@ AUTHENTICATION_BACKENDS = {
     'django.contrib.auth.backends.ModelBackend',
 }
 
-#Celery/RabbitMQ
 CELERY_BROKER_URL = os.environ.get('RABBITMQ_URL', 'amqp://guest:guest@rabbitmq:5672//')
 CELERY_RESULT_BACKEND = 'django-db'   
 CELERY_TASK_SERIALIZER  = 'json'
 CELERY_ACCEPT_CONTENT   = ['json']
 CELERY_TIMEZONE         = 'Asia/Ho_Chi_Minh'
 
-#GmailSMTP
 EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST          = 'smtp.gmail.com'
 EMAIL_PORT          = 587

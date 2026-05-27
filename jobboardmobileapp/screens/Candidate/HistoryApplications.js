@@ -1,19 +1,16 @@
-import { useCallback, useContext, useRef, useState } from 'react'; // Bỏ useEffect ở đây (không dùng tới nữa)
+import { useCallback, useContext, useRef, useState } from 'react';
 import {
     ActivityIndicator, Alert, Animated, FlatList, Image,
     Modal, RefreshControl, ScrollView, Text,
     TouchableOpacity, View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// BƯỚC 1: Import useFocusEffect
 import { useFocusEffect } from '@react-navigation/native'; 
 import { authApi, endpoints } from '../../configs/Apis';
 import { MyUserContext } from '../../configs/Contexts';
 import styles from './Styles';
 import { useStripe } from '@stripe/stripe-react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     PENDING:   { label: 'Chờ duyệt',    color: '#F59E0B', bg: '#FEF3C7', icon: <Ionicons name="hourglass" size={16} color="#F59E0B" style={{ marginRight: 6 }} />},
     REVIEWING: { label: 'Đang xem xét', color: '#3B5BDB', bg: '#EEF2FF', icon: <Ionicons name="eye" size={16} color="#3B5BDB" style={{ marginRight: 6 }} /> },
@@ -47,7 +44,6 @@ const LEVEL_COLORS = {
     3: { bg: '#F3E8FF', border: '#A855F7', text: '#6B21A8', badge: '🥇' },
 };
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
     { key: 'ALL',       label: 'Tất cả'    },
     { key: 'PENDING',   label: 'Chờ duyệt' },
@@ -56,7 +52,6 @@ const TABS = [
     { key: 'REJECTED',  label: 'Từ chối'   },
 ];
 
-// ─── Package Card (dùng trong modal) ─────────────────────────────────────────
 const PackageCard = ({ pkg, selected, onSelect }) => {
     const lv = LEVEL_COLORS[pkg.level] ?? LEVEL_COLORS[1];
     const isSelected = selected?.id === pkg.id;
@@ -91,7 +86,6 @@ const PackageCard = ({ pkg, selected, onSelect }) => {
     );
 };
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function MyApplications({ navigation }) {
     const user = useContext(MyUserContext);
     const { initPaymentSheet, presentPaymentSheet } = useStripe(); 
@@ -103,7 +97,6 @@ export default function MyApplications({ navigation }) {
     const [cancelTarget, setCancelTarget] = useState(null);
     const [cancelling, setCancelling]     = useState(false);
 
-    // ── Priority upgrade state ────────────────────────────────────────────────
     const [priorityTarget, setPriorityTarget]     = useState(null);
     const [packages, setPackages]                 = useState([]);
     const [loadingPkgs, setLoadingPkgs]           = useState(false);
@@ -130,7 +123,6 @@ export default function MyApplications({ navigation }) {
         ]).start();
     };
 
-    // ── Fetch applications ────────────────────────────────────────────────────
     const loadApplications = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
         try {
@@ -149,7 +141,6 @@ export default function MyApplications({ navigation }) {
         }
     }, [user?.token]);
 
-    // BƯỚC 2: THAY THẾ useEffect BẰNG useFocusEffect
     useFocusEffect(
         useCallback(() => {
             loadApplications();
@@ -157,8 +148,6 @@ export default function MyApplications({ navigation }) {
     );
 
     const onRefresh = () => { setRefreshing(true); loadApplications(true); };
-
-    // ── Fetch packages priority_application ───────────────────────────────────
     const loadPackages = async () => {
         setLoadingPkgs(true);
         try {
@@ -175,7 +164,6 @@ export default function MyApplications({ navigation }) {
         }
     };
 
-    // ── Open priority modal ───────────────────────────────────────────────────
     const openPriorityModal = async (application) => {
         setPriorityTarget(application);
         setSelectedPkg(null);
@@ -191,7 +179,6 @@ export default function MyApplications({ navigation }) {
         setPackages([]);
     };
 
-    // ── Create payment intent + Stripe Payment Sheet ──────────────────────────
     const handlePurchase = async () => {
         if (!selectedPkg || !priorityTarget) return;
         setPurchasing(true);
@@ -252,7 +239,6 @@ export default function MyApplications({ navigation }) {
         }
     };
 
-    // ── Cancel application ────────────────────────────────────────────────────
     const doCancel = async () => {
         if (!cancelTarget) return;
         setCancelling(true);
@@ -269,12 +255,10 @@ export default function MyApplications({ navigation }) {
         }
     };
 
-    // ── Derived list ──────────────────────────────────────────────────────────
     const filtered = activeTab === 'ALL'
         ? applications
         : applications.filter(a => a.status?.toUpperCase() === activeTab);
 
-    // ─── Card ─────────────────────────────────────────────────────────────────
     const AppCard = ({ item }) => {
         const st       = getStatus(item.status);
         const job      = typeof item.job === 'object' && item.job !== null ? item.job : {};
@@ -422,7 +406,6 @@ export default function MyApplications({ navigation }) {
         );
     };
 
-    // ─── Empty state ──────────────────────────────────────────────────────────
     const EmptyState = () => (
         <View style={styles.empty}>
             <Text style={styles.emptyIcon}><Ionicons name="document-text" size={50} color="#2563EB" style={{ marginRight: 8 }}/></Text>
@@ -443,7 +426,6 @@ export default function MyApplications({ navigation }) {
         </View>
     );
 
-    // ─── Priority Modal ───────────────────────────────────────────────────────
     const PriorityModal = () => {
         const jobTitle = typeof priorityTarget?.job === 'object'
             ? priorityTarget?.job?.title
@@ -504,7 +486,6 @@ export default function MyApplications({ navigation }) {
         );
     };
 
-    // ─── Cancel Modal ─────────────────────────────────────────────────────────
     const CancelModal = () => {
         const jobTitle = typeof cancelTarget?.job === 'object'
             ? cancelTarget?.job?.title

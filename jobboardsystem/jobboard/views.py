@@ -10,12 +10,11 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from django.contrib.auth import get_user_model
 from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django.db.models import Count, Sum, Q, Avg
-import requests
+import logging
+from datetime import datetime
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.csrf import csrf_exempt
-from google.oauth2 import id_token as google_id_token
-from google.auth.transport import requests as google_requests
 from oauthlib.common import generate_token
 from oauth2_provider.models import Application as OAuth2Application
 from oauth2_provider.models import AccessToken
@@ -44,7 +43,6 @@ User = get_user_model()
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-# Custom throttle class cho login và register
 class LoginRateThrottle(AnonRateThrottle):
     scope = 'login'
 
@@ -53,7 +51,6 @@ class RegisterRateThrottle(AnonRateThrottle):
     scope = 'register'
 
 
-# AUTH
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -94,13 +91,12 @@ class ChangePasswordView(generics.GenericAPIView):
         return Response({"message": "Đổi mật khẩu thành công!"})
 
 
-# COMPANY
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.filter(is_active=True)
     serializer_class = CompanySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {'name': ['icontains']}
-
+    pagination_class = MyPaginator
     def get_permissions(self):
         if self.action in ['create', 'my_companies']:
             return [IsEmployer()]
@@ -122,7 +118,19 @@ class CompanyViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(companies, many=True)
         return Response(serializer.data)
 
-# JOB
+logger = logging.getLogger(__name__)
+
+def log_cache_status(status_type, message):
+    time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    prefix = ""
+    if status_type == "HIT":
+        prefix = "[CACHE HIT]"
+    elif status_type == "MISS":
+        prefix = "[CACHE MISS]"
+    elif status_type == "CLEAR":
+        prefix = "[CACHE CLEARED]"
+    print(f"\n{prefix} [{time_str}] -> {message}\n")
+
 class JobViewSet(viewsets.ModelViewSet):
     queryset = Job.objects.filter(is_active=True, status='approved') \
         .select_related('company', 'category') \
@@ -145,7 +153,6 @@ class JobViewSet(viewsets.ModelViewSet):
             return [IsVerifiedEmployer()]
         return [permissions.AllowAny()]
 
-    # Đọc danh sách job từ redis ram trước khi quét DB
     def list(self, request, *args, **kwargs):
         page = request.query_params.get('page', '1')
         job_type = request.query_params.get('job_type', '')
@@ -154,38 +161,70 @@ class JobViewSet(viewsets.ModelViewSet):
         search = request.query_params.get('search', '')
         ordering = request.query_params.get('ordering', '')
 
-        # Tạo khóa Cache động theo bộ lọc của react native gửi
         cache_key = f"jobs_list_p{page}_t{job_type}_c{category}_co{company}_s{search}_o{ordering}"
 
         cached_jobs = cache.get(cache_key)
         if cached_jobs:
+            log_cache_status("HIT", f"Dữ liệu tìm thấy trong Cache với Key: '{cache_key}'. Không gọi Database!")
             return Response(cached_jobs)
 
+        log_cache_status("MISS", f"Không tìm thấy Cache cho Key: '{cache_key}'. Đang truy vấn Database...")
         response = super().list(request, *args, **kwargs)
 
-        # Tăng thời gian lưu trữ lên 1 ngày (86400 giây) vì ta đã kiểm soát việc xóa cache chủ động
-        cache.set(cache_key, response.data, timeout=86400)
+        cache.set(cache_key, response.data, timeout=300)
+        log_cache_status("MISS", f"Đã lưu kết quả mới vào Cache thành công (Timeout: 5 phút).")
         return response
 
     def perform_create(self, serializer):
         serializer.save()
-        # Không cần viết code xóa cache ở đây, Tín hiệu ngầm (Signal) sẽ tự xử lý
+        cache.clear()
+        log_cache_status("CLEAR", "Nhà tuyển dụng ĐĂNG JOB MỚI -> Hệ thống đã xóa sạch toàn bộ Cache cũ để cập nhật trang chủ.")
 
     def perform_update(self, serializer):
         job = self.get_object()
         if job.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền sửa job này.')
         serializer.save()
-        # Signal tự động nhận biết sự kiện save() và dọn cache
+        cache.clear()
+        log_cache_status("CLEAR", f"Nhà tuyển dụng CẬP NHẬT JOB (ID: {job.id}) -> Hệ thống tiến hành làm sạch bộ nhớ Cache.")
 
     def perform_destroy(self, instance):
         if instance.company.owner != self.request.user:
             raise PermissionDenied('Bạn không có quyền xóa job này!')
-
-        # Vì bạn thực hiện Xóa mềm (Soft Delete) bằng cách thay đổi is_active và lưu lại,
-        # hàm save() này vẫn sẽ kích hoạt tín hiệu post_save để dọn sạch cache trên Redis.
         instance.is_active = False
         instance.save()
+        cache.clear()
+        log_cache_status("CLEAR", f"Nhà tuyển dụng XÓA JOB (ID: {instance.id}) -> Hệ thống thực hiện Clear toàn bộ Cache cũ.")
+
+    @action(detail=True, methods=['get'], permission_classes=[IsEmployer], url_path='applications')
+    def applications(self, request, pk=None):
+        job = self.get_object()
+        if job.company.owner != request.user:
+            return Response({'error': 'Bạn không có quyền xem.'}, status=403)
+        apps = job.applications.select_related('candidate__profile') \
+            .prefetch_related('candidate__profile__skills')
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            apps = apps.filter(status=status_filter)
+        apps = apps.order_by('-priority_level', '-created_at')
+
+        return Response(ApplicationSerializer(apps, many=True, context={'request': request}).data)
+
+    @action(detail=False, methods=['get'], url_path='my-jobs', permission_classes=[IsVerifiedEmployer])
+    def my_jobs(self, request):
+        jobs = Job.objects.filter(
+            company__owner=request.user
+        ).select_related('company', 'category') \
+            .prefetch_related('skills') \
+            .order_by('-created_at')
+
+        page = self.paginate_queryset(jobs)
+        if page is not None:
+            serializer = JobDetailSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        return Response(JobDetailSerializer(jobs, many=True, context={'request': request}).data)
+
 
 class JobComparisonViewSet(viewsets.ModelViewSet):
     serializer_class = JobComparisonSerializer
@@ -262,8 +301,22 @@ class JobComparisonViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Comparison đã bị xóa vì còn ít hơn 2 công việc!'}, status=status.HTTP_200_OK)
         return Response(JobComparisonSerializer(comparison, context={'request': request}).data)
 
+def log_app_status(action_type, message):
+    time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    prefix = ""
+    if action_type == "VIP_SCAN":
+        prefix = "[VIP EXPIRED SCAN]"
+    elif action_type == "CREATE":
+        prefix = "[APPLICATION CREATED]"
+    elif action_type == "DELETE":
+        prefix = "[APPLICATION WITHDRAWN]"
+    elif action_type == "STATUS":
+        prefix = "[STATUS UPDATED]"
+    elif action_type == "INTERVIEW":
+        prefix = "[INTERVIEW SCHEDULED]"
 
-# APPLICATION
+    print(f"\n{prefix} [{time_str}] -> {message}\n")
+
 class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -277,16 +330,18 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
         if self.action == 'list':
             try:
-                # lọc những đơn thực sự là priority và có expired khác Null
-                Application.objects.filter(
+                expired_count = Application.objects.filter(
                     is_priority=True,
                     priority_expired_at__isnull=False,
                     priority_expired_at__lte=timezone.now()
                 ).update(is_priority=False, priority_level=0)
+                
+                if expired_count > 0:
+                    log_app_status("VIP_SCAN", f"Đã quét và hạ cấp {expired_count} đơn ứng tuyển VIP hết hạn về trạng thái thường.")
+            
             except Exception as e:
                 print("--- [WARNING] Lỗi quét hạn định VIP ứng tuyển: ", str(e))
 
-        #phân quyền trả về dữ liệu chuẩn SQL
         if user.role == 'candidate':
             return Application.objects.filter(candidate=user).select_related('job')
 
@@ -305,7 +360,10 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(candidate=self.request.user)
+        app = serializer.save(candidate=self.request.user)
+        log_app_status("CREATE", f"Ứng viên '{self.request.user.username}' vừa nộp đơn thành công cho Job ID: {app.job.id}.")
+        cache.clear()
+        log_app_status("CREATE", "Hệ thống làm sạch Cache Job cũ để đảm bảo số lượng thống kê real-time.")
 
     def destroy(self, request, *args, **kwargs):
         app = self.get_object()
@@ -314,8 +372,13 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if app.status in ['ACCEPTED', 'REVIEWING']:
             return Response({'error': 'Không thể rút đơn khi đang được xét duyệt hoặc đã được chấp nhận.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        return super().destroy(request, *args, **kwargs)
-
+        app_id = app.id
+        job_id = app.job.id
+        response = super().destroy(request, *args, **kwargs)
+        log_app_status("DELETE", f"Ứng viên '{request.user.username}' đã RÚT ĐƠN ỨNG TUYỂN (ID đơn: {app_id}) khỏi Job ID: {job_id}.")
+        cache.clear()
+        return response
+    
     @action(detail=True, methods=['patch'], url_path='update-status')
     def update_status(self, request, pk=None):
         app = self.get_object()
@@ -334,8 +397,11 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 return Response({'error': f'Vị trí này chỉ tuyển {app.job.quantity} người. Đã chấp nhận đủ số lượng.'},
                                 status=status.HTTP_400_BAD_REQUEST)
 
+        old_status = app.status
         app.status = new_status
         app.save()
+        log_app_status("STATUS", f"Nhà tuyển dụng thay đổi trạng thái đơn số {app.id}: [{old_status}] ➡️ [{new_status}].")
+        cache.clear()
         return Response(self.get_serializer(app).data)
 
     @action(detail=True, methods=['patch'], url_path='add-note')
@@ -365,10 +431,13 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save(interview_notified=False)
 
+        log_app_status("INTERVIEW", f"Đã lên lịch phỏng vấn cho đơn ứng tuyển số {app.id}. Thời gian lưu trữ thành công.")
+
         send_email_requested = request.data.get('send_email', True)
         if send_email_requested:
             from .tasks import send_interview_email_task
             send_interview_email_task.delay(app.id)
+            log_app_status("INTERVIEW", f"Đã đẩy Task gửi Email thông báo tự động (Celery) tới ứng viên.")
 
         return Response(serializer.data)
 
@@ -387,15 +456,12 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         serializer = InterviewScheduleSerializer(apps, many=True)
         return Response(serializer.data)
 
-    # CATEGORY & SKILL
-
 
 class JobCategoryListView(generics.ListAPIView):
     queryset = JobCategory.objects.filter(is_active=True)
     serializer_class = JobCategorySerializer
     permission_classes = [permissions.AllowAny]
 
-    #xử lý cache: lưu mảng Ngành nghề tĩnh lên RAM redis 1 tiếng
     @method_decorator(cache_page(60 * 60))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -406,13 +472,11 @@ class SkillListView(generics.ListAPIView):
     serializer_class = SkillSerializer
     permission_classes = [permissions.AllowAny]
 
-    #xử lý cache: lưu mảng Kỹ năng tĩnh lên RAM redis 1 tiếng
     @method_decorator(cache_page(60 * 60))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
 
-# PROFILES
 class CandidateProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = CandidateProfileSerializer
     permission_classes = [IsCandidate]
@@ -544,7 +608,7 @@ class AdminJobViewSet(viewsets.GenericViewSet):
         job.status = 'approved'
         job.rejection_reason = None
         job.save()
-        cache.clear() #clear cache trang chủ khi admin duyệt bài đăng mới
+        cache.clear()
         return Response({'message': f'Đã duyệt job "{job.title}".'})
 
     @action(detail=True, methods=['patch'], url_path='reject')
@@ -559,7 +623,6 @@ class AdminJobViewSet(viewsets.GenericViewSet):
         return Response({'message': f'Đã từ chối job "{job.title}".'})
 
 
-# PACKAGE
 class PackageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Package.objects.all().order_by('package_type', 'level')
     serializer_class = PackageSerializer
@@ -575,7 +638,6 @@ class StripeWebhookParser(BaseParser):
         return stream.read()
 
 
-# PAYMENT
 @method_decorator(csrf_exempt, name='dispatch')
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
@@ -642,34 +704,66 @@ class PaymentViewSet(viewsets.ModelViewSet):
             permission_classes=[permissions.AllowAny],
             parser_classes=[StripeWebhookParser])
     def stripe_webhook(self, request):
-        payload = request.body
+        payload = request.data
         sig_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
+        webhook_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', '')
 
         try:
             event = stripe.Webhook.construct_event(
-                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+                payload, sig_header, webhook_secret
             )
-        except (ValueError, stripe.error.SignatureVerificationError):
-            return Response(status=400)
+        except ValueError:
+            print("--- [ERROR] Webhook: Dữ liệu Payload trống hoặc sai cấu trúc ---")
+            return Response({'error': 'Invalid payload'}, status=status.HTTP_400_BAD_REQUEST)
+        except stripe.error.SignatureVerificationError:
+            print("--- [ERROR] Webhook: Mã ký bí mật STRIPE_WEBHOOK_SECRET không chính xác ---")
+            return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"--- [ERROR] Webhook: Gặp lỗi xác thực không xác định: {str(e)} ---")
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         if event['type'] == 'payment_intent.succeeded':
             intent = event['data']['object']
+            print(f"--- [INFO] Nhận gói tin Succeeded cho Intent ID: {intent['id']} ---")
+            
             try:
-                payment = Payment.objects.get(transaction_id=intent['id'])
+                payment = Payment.objects.select_related('job', 'package').get(transaction_id=intent['id'])
+                
                 if payment.status != 'completed':
                     payment.status = 'completed'
                     payment.save()
+                    print("--- [SUCCESS] Đã cập nhật trạng thái giao dịch: Completed ---")
+
+                    if payment.payment_type == 'featured_job' and payment.job:
+                        job = payment.job
+                        job.is_featured = True 
+                        if payment.package:
+                            job.featured_priority = payment.package.level
+                            job.featured_score = payment.package.level * 10
+                        else:
+                            job.featured_priority = 1
+                            job.featured_score = 10
+                        
+                        job.save()
+                        print(f"--- [VIP ACTIVATED] Bài đăng '{job.title}' đã được chuyển trạng thái NỔI BẬT! ---")
+                    
+                    cache.clear()
+                    print("--- [CACHE] Đã xóa toàn bộ cache cũ thành công ---")
+
             except Payment.DoesNotExist:
-                pass
+                print(f"--- [WARNING] Không tìm thấy hóa đơn nào khớp với Transaction ID: {intent['id']} ---")
+            except Exception as e:
+                print(f"--- [CRITICAL] Hàm Webhook sập khi đang cập nhật cơ sở dữ liệu: {str(e)} ---")
+                return Response({'error': 'Internal database update failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         elif event['type'] == 'payment_intent.payment_failed':
             intent = event['data']['object']
+            print(f"--- [INFO] Nhận gói tin Payment Failed cho Intent ID: {intent['id']} ---")
             Payment.objects.filter(transaction_id=intent['id']).update(status='failed')
 
-        return Response({'status': 'ok'})
+        return Response({'status': 'ok'}, status=status.HTTP_200_OK)
 
 
-# STATISTICS
 class AdminStatisticsViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
 
@@ -776,93 +870,3 @@ class EmployerStatisticsViewSet(viewsets.ViewSet):
             'jobs_by_quarter': list(jobs_by_quarter),
             'jobs_by_year': list(jobs_by_year),
         })
-
-
-# GOOGLE SOCIAL AUTH
-def get_google_user_info(google_access_token):
-    try:
-        info = google_id_token.verify_oauth2_token(
-            google_access_token,
-            google_requests.Request(),
-            "319877551032-8tc956k29ktdj6etpglibi59u7g36bhf.apps.googleusercontent.com"
-        )
-        return info
-    except Exception as e:
-        print("Google token error:", e)
-        return None
-
-
-def create_oauth2_token(user):
-    """Tạo OAuth2 access token cho user."""
-    from django.conf import settings
-    app = OAuth2Application.objects.get(client_id=settings.CLIENT_ID)
-    AccessToken.objects.filter(user=user, application=app).delete()
-    token = AccessToken.objects.create(
-        user=user,
-        application=app,
-        token=generate_token(),
-        expires=timezone.now() + timedelta(seconds=3600),
-        scope="read write",
-    )
-    return token.token
-
-
-class GoogleLoginView(generics.GenericAPIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        google_token = request.data.get("google_token")
-        if not google_token:
-            return Response({"error": "Thiếu google_token"}, status=400)
-
-        info = get_google_user_info(google_token)
-        if not info or "email" not in info:
-            return Response({"error": "Token Google không hợp lệ"}, status=400)
-
-        user = User.objects.filter(email=info["email"]).first()
-        if not user:
-            return Response({"error": "Email chưa đăng ký. Vui lòng đăng ký trước."}, status=404)
-        if not user.is_active:
-            return Response({"error": "Tài khoản chưa được kích hoạt."}, status=403)
-
-        access_token = create_oauth2_token(user)
-        return Response({"access_token": access_token})
-
-
-class GoogleRegisterView(generics.GenericAPIView):
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request):
-        google_token = request.data.get("google_token")
-        role = request.data.get("role", "candidate")
-
-        if not google_token:
-            return Response({"error": "Thiếu google_token"}, status=400)
-        if role not in ["candidate", "employer"]:
-            return Response({"error": "Role không hợp lệ"}, status=400)
-
-        info = get_google_user_info(google_token)
-        if not info or "email" not in info:
-            return Response({"error": "Token Google không hợp lệ"}, status=400)
-
-        email = info["email"]
-        if User.objects.filter(email=email).exists():
-            return Response({"error": "Email này đã được đăng ký."}, status=400)
-
-        base = info.get("given_name", email.split("@")[0]).lower().replace(" ", "")
-        username, suffix = base, 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base}{suffix}"
-            suffix += 1
-
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=None,
-            first_name=info.get("given_name", ""),
-            last_name=info.get("family_name", ""),
-            role=role,
-            is_active=(role == "candidate"),
-        )
-
-        return Response({"message": "Đăng ký thành công!", "pending": role == "employer"}, status=201)
