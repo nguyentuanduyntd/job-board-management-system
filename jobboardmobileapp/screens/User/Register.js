@@ -46,6 +46,7 @@ const Register = () => {
     };
 
     const handleRegister = async () => {
+        if (loading) return;
         setErr("");
         if (!validate()) return;
         setLoading(true);

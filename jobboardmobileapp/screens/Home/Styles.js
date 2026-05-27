@@ -122,18 +122,13 @@ export default StyleSheet.create({
         backgroundColor: '#F0FDF4', 
         borderColor: '#22C55E',     
     },
-    featuredRibbon: { 
-        position: 'absolute', 
-        top: 0, 
-        right: 0, 
-        backgroundColor: '#F59E0B', 
-        paddingHorizontal: 12, 
-        paddingVertical: 5, 
-        borderBottomLeftRadius: 12, 
-        borderTopRightRadius: 10, 
-        zIndex: 99,
+    featuredBadge: { 
+    backgroundColor: '#F59E0B', 
+    paddingHorizontal: 8, 
+    paddingVertical: 2, 
+    borderRadius: 4,
     },
-    featuredRibbonText: { 
+    featuredBadgeText: { 
         color: '#FFFFFF', 
         fontSize: 10, 
         fontWeight: '900', 
@@ -157,7 +152,7 @@ export default StyleSheet.create({
         fontSize: 15, 
         fontWeight: '600', 
         color: '#222',
-        paddingRight: 20 
+        paddingRight: 4,
     },
     companyName: { 
         fontSize: 13, 

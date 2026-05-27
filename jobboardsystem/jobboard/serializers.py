@@ -32,7 +32,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
 
         if user.role == 'employer':
-            EmployerProfile.objects.create(user=user)
+            EmployerProfile.objects.get_or_create(user=user)
 
         return user
 

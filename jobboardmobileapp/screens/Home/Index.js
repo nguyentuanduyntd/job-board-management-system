@@ -196,8 +196,10 @@ export default function HomeScreen({ navigation }) {
                         <Image source={{ uri: job.company_logo }} style={styles.logo} />
                         <View style={styles.cardInfo}>
                             {isFeatured && (
-                                <View style={styles.featuredRibbon}>
-                                    <Text style={styles.featuredRibbonText}>NỔI BẬT</Text>
+                                <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+                                    <View style={styles.featuredBadge}>
+                                        <Text style={styles.featuredBadgeText}>NỔI BẬT</Text>
+                                    </View>
                                 </View>
                             )}
                             <Text style={styles.jobTitle} numberOfLines={2}>{job.title ?? ''}</Text>
